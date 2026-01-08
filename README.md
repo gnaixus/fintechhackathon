@@ -11,7 +11,7 @@ By leveraging XRPL’s native escrow functionality and RLUSD, Frescrow eliminate
 > **Core Idea:**  
 > Trust is enforced by the transparency of the XRP Ledger — not by the platform.
 
-[Video](https://drive.google.com/drive/folders/1HUib_pYoRMt3ELIPOykPvX6NAUAv3xy0?usp=sharing)
+[Video](https://drive.google.com/file/d/17H7XkNw5qKVHVU5xtBa9H3kamsMfvaMi/view?usp=drive_link)
 [Documentation](https://drive.google.com/file/d/1pW8RZCpIe52rx5Q5gJuUr9oEqeR91Kz6/view?usp=sharing)
 ---
 
