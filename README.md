@@ -106,10 +106,11 @@ npm run dev
 ### Frontend runs on:
 http://localhost:5173
 
-### Tech Stack
-Frontend: React.js, React Router
-Backend: Node.js, Express
-Blockchain: XRP Ledger (XRPL Testnet)
-SDK: xrpl.js
+---
 
+## Teck Stack
+- Frontend: React.js, React Router
+- Backend: Node.js, Express
+- Blockchain: XRP Ledger (XRPL Testnet)
+- SDK: xrpl.js
 
