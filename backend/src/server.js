@@ -12,44 +12,35 @@ const PORT = process.env.PORT || 3001;
 app.use(cors());
 app.use(express.json());
 
-// In-memory storage for demo (use database in production)
-// NOTE: This backend is intentionally designed to match the existing frontend
-// (no frontend changes needed). Replace with a DB for persistence.
+// In-memory storage
 const projects = new Map();
 const users = new Map();
 
-/**
- * 🚀 OPTIMIZED FRESCROW BACKEND
- * 
- * XRPL Features Showcased:
- * ✅ Native Escrow (EscrowCreate, EscrowFinish)
- * ✅ Time-locked payments
- * ✅ On-chain memos for metadata
- * ✅ DID-based authentication (wallet addresses)
- * ✅ RLUSD trust lines (future-ready)
- * ✅ Transaction history & reputation
- * 
- * Tech Stack:
- * - Express.js (REST API)
- * - XRPL.js (blockchain integration)
- * - In-memory database (for hackathon demo)
- * - Helmet (security)
- * - Compression (performance)
- */
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', message: 'Freelance Escrow API is running' });
+  res.json({ 
+    status: 'ok', 
+    message: 'Freelance Escrow API (RLUSD Edition)',
+    currency: 'RLUSD',
+    conversionRate: xrplClient.getConversionRate()
+  });
 });
 
 /**
- * Create new wallet
- * POST /api/wallet/create
+ * Create new wallet with RLUSD trust line
  */
 app.post('/api/wallet/create', async (req, res) => {
   try {
     const wallet = await xrplClient.createWallet();
-    // Balance call is optional but nice for UX
     const balance = await xrplClient.getBalance(wallet.address);
-    res.json({ success: true, wallet: { ...wallet, balance } });
+    
+    res.json({ 
+      success: true, 
+      wallet: { 
+        ...wallet, 
+        balance: balance.rlusdEquivalent, // Display RLUSD equivalent
+        balances: balance
+      } 
+    });
   } catch (error) {
     console.error('Error creating wallet:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -57,9 +48,7 @@ app.post('/api/wallet/create', async (req, res) => {
 });
 
 /**
- * Verify wallet from seed (frontend uses this to "connect")
- * POST /api/wallet/verify
- * Body: { seed: string }
+ * Verify wallet from seed
  */
 app.post('/api/wallet/verify', async (req, res) => {
   try {
@@ -68,7 +57,6 @@ app.post('/api/wallet/verify', async (req, res) => {
       return res.status(400).json({ success: false, error: 'Missing seed' });
     }
 
-    // Basic seed sanity check (XRPL seeds typically start with "s")
     if (!seed.startsWith('s')) {
       return res.status(400).json({ success: false, error: 'Invalid seed format' });
     }
@@ -76,7 +64,13 @@ app.post('/api/wallet/verify', async (req, res) => {
     const wallet = xrplClient.getWallet(seed);
     const balance = await xrplClient.getBalance(wallet.address);
 
-    // Keep a lightweight session cache (demo)
+    // Ensure RLUSD trust line exists
+    try {
+      await xrplClient.createTrustLine(wallet);
+    } catch (error) {
+      console.log('Trust line may already exist:', error.message);
+    }
+
     users.set(wallet.address, {
       address: wallet.address,
       publicKey: wallet.publicKey,
@@ -88,7 +82,8 @@ app.post('/api/wallet/verify', async (req, res) => {
       wallet: {
         address: wallet.address,
         publicKey: wallet.publicKey,
-        balance
+        balance: balance.rlusdEquivalent, // Display RLUSD
+        balances: balance
       }
     });
   } catch (error) {
@@ -98,13 +93,16 @@ app.post('/api/wallet/verify', async (req, res) => {
 });
 
 /**
- * Get wallet balance
- * GET /api/wallet/:address/balance
+ * Get wallet balance (returns RLUSD equivalent)
  */
 app.get('/api/wallet/:address/balance', async (req, res) => {
   try {
     const balance = await xrplClient.getBalance(req.params.address);
-    res.json({ success: true, balance });
+    res.json({ 
+      success: true, 
+      balance: balance.rlusdEquivalent, // Primary balance in RLUSD
+      balances: balance
+    });
   } catch (error) {
     console.error('Error getting balance:', error);
     res.status(500).json({ success: false, error: error.message });
@@ -112,20 +110,11 @@ app.get('/api/wallet/:address/balance', async (req, res) => {
 });
 
 /**
- * Create new project with escrow
- * POST /api/projects/create
- * Body: {
- *   clientSeed: string,
- *   freelancerAddress: string,
- *   title: string,
- *   description: string,
- *   milestones: Array<{name, amount, deadline}>,
- * }
+ * Create new project with escrow (amounts in RLUSD)
  */
 async function createProjectWithEscrows(req, res) {
   try {
     const body = req.body || {};
-    // Accept a few common aliases so older Python-oriented payloads still work.
     const clientSeed = body.clientSeed || body.client_seed || body.employer_seed;
     const freelancerAddress = body.freelancerAddress || body.freelancer_address;
     const title = body.title;
@@ -142,7 +131,7 @@ async function createProjectWithEscrows(req, res) {
     const clientWallet = xrplClient.getWallet(clientSeed);
     const projectId = `proj_${Date.now()}`;
     
-    // Create escrows for each milestone
+    // Create escrows for each milestone (amounts are in RLUSD)
     const escrows = [];
     for (const milestone of milestones) {
       const projectData = {
@@ -154,10 +143,12 @@ async function createProjectWithEscrows(req, res) {
       };
 
       const finishAfterMs = milestone.deadline ? new Date(milestone.deadline).getTime() : undefined;
+      
+      // Amount is already in RLUSD, xrpl-client will handle conversion
       const escrowResult = await xrplClient.createEscrow({
         clientWallet,
         freelancerAddress,
-        amount: milestone.amount.toString(),
+        amount: milestone.amount.toString(), // RLUSD amount
         finishAfter: finishAfterMs,
         projectData
       });
@@ -176,12 +167,13 @@ async function createProjectWithEscrows(req, res) {
       description,
       clientAddress: clientWallet.address,
       freelancerAddress,
-      status: 'pending', // pending, accepted, completed
+      status: 'pending',
+      currency: 'RLUSD',
       milestones: milestones.map((m, idx) => ({
         ...m,
         escrow: escrows[idx],
-        status: 'pending', // pending, submitted, approved, released
-        submission: null // Will store { description, fileUrl, submittedAt }
+        status: 'pending',
+        submission: null
       })),
       createdAt: new Date().toISOString()
     };
@@ -191,7 +183,7 @@ async function createProjectWithEscrows(req, res) {
     res.json({ 
       success: true, 
       project,
-      message: `Created ${escrows.length} escrows for project` 
+      message: `Created ${escrows.length} escrows for project (RLUSD accounting)` 
     });
 
   } catch (error) {
@@ -200,21 +192,11 @@ async function createProjectWithEscrows(req, res) {
   }
 }
 
-/**
- * Create new project with escrow (legacy)
- * POST /api/projects/create
- */
 app.post('/api/projects/create', createProjectWithEscrows);
-
-/**
- * Create new project with escrow (frontend expects this name)
- * POST /api/projects/create-with-wallet
- */
 app.post('/api/projects/create-with-wallet', createProjectWithEscrows);
 
 /**
  * Get project details
- * GET /api/projects/:projectId
  */
 app.get('/api/projects/:projectId', async (req, res) => {
   try {
@@ -227,7 +209,7 @@ app.get('/api/projects/:projectId', async (req, res) => {
       });
     }
 
-    // Refresh escrow status from blockchain
+    // Refresh escrow status
     for (const milestone of project.milestones) {
       if (milestone.escrow && milestone.status === 'pending') {
         const escrowData = await xrplClient.getEscrow(
@@ -250,7 +232,6 @@ app.get('/api/projects/:projectId', async (req, res) => {
 
 /**
  * Get all escrows for an address
- * GET /api/escrows/:address
  */
 app.get('/api/escrows/:address', async (req, res) => {
   try {
@@ -264,12 +245,6 @@ app.get('/api/escrows/:address', async (req, res) => {
 
 /**
  * Approve milestone (release escrow)
- * POST /api/milestones/approve
- * Body: {
- *   projectId: string,
- *   milestoneIndex: number,
- *   freelancerSeed: string
- * }
  */
 app.post('/api/milestones/approve', async (req, res) => {
   try {
@@ -312,7 +287,7 @@ app.post('/api/milestones/approve', async (req, res) => {
 
     res.json({ 
       success: true, 
-      message: 'Milestone approved and funds released',
+      message: `Milestone approved - ${milestone.amount} RLUSD (equivalent) released`,
       result 
     });
 
@@ -324,7 +299,6 @@ app.post('/api/milestones/approve', async (req, res) => {
 
 /**
  * Get user reputation
- * GET /api/reputation/:address
  */
 app.get('/api/reputation/:address', async (req, res) => {
   try {
@@ -334,7 +308,6 @@ app.get('/api/reputation/:address', async (req, res) => {
       address: req.params.address,
       totalProjects: history.completedEscrows,
       totalTransactions: history.totalTransactions,
-      // Calculate simple reputation score
       score: Math.min(5, 1 + (history.completedEscrows / 10) * 4),
       lastUpdated: new Date().toISOString()
     };
@@ -347,19 +320,12 @@ app.get('/api/reputation/:address', async (req, res) => {
 });
 
 /**
- * Get all projects (for demo)
- * GET /api/projects
- */
-
-/**
  * Get pending offers for a freelancer
- * GET /api/projects/offers/:freelancerAddress
  */
 app.get('/api/projects/offers/:freelancerAddress', (req, res) => {
   try {
     const { freelancerAddress } = req.params;
     
-    // Find all projects where this address is the freelancer and status is 'pending'
     const allProjects = Array.from(projects.values());
     const offers = allProjects.filter(p => 
       p.freelancerAddress === freelancerAddress && 
@@ -375,11 +341,10 @@ app.get('/api/projects/offers/:freelancerAddress', (req, res) => {
 
 /**
  * Accept a project offer
- * POST /api/projects/:projectId/accept
  */
 app.post('/api/projects/:projectId/accept', (req, res) => {
   try {
-    const { projectId} = req.params;
+    const { projectId } = req.params;
     const { freelancerAddress } = req.body;
 
     const project = projects.get(projectId);
@@ -398,7 +363,6 @@ app.post('/api/projects/:projectId/accept', (req, res) => {
       });
     }
 
-    // Update project status
     project.status = 'accepted';
     project.acceptedAt = new Date().toISOString();
     projects.set(projectId, project);
@@ -416,7 +380,6 @@ app.post('/api/projects/:projectId/accept', (req, res) => {
 
 /**
  * Submit work for a milestone
- * POST /api/milestones/submit
  */
 app.post('/api/milestones/submit', (req, res) => {
   try {
@@ -438,7 +401,6 @@ app.post('/api/milestones/submit', (req, res) => {
       });
     }
 
-    // Update milestone with submission
     milestone.status = 'submitted';
     milestone.submission = {
       ...submission,
@@ -460,7 +422,6 @@ app.post('/api/milestones/submit', (req, res) => {
 
 /**
  * Approve milestone submission (client only)
- * POST /api/milestones/approve-work
  */
 app.post('/api/milestones/approve-work', (req, res) => {
   try {
@@ -496,7 +457,6 @@ app.post('/api/milestones/approve-work', (req, res) => {
       });
     }
 
-    // Approve the work
     milestone.status = 'approved';
     milestone.approvedAt = new Date().toISOString();
     
@@ -513,6 +473,9 @@ app.post('/api/milestones/approve-work', (req, res) => {
   }
 });
 
+/**
+ * Get all projects
+ */
 app.get('/api/projects', (req, res) => {
   const allProjects = Array.from(projects.values());
   res.json({ success: true, projects: allProjects });
@@ -521,6 +484,8 @@ app.get('/api/projects', (req, res) => {
 // Start server
 app.listen(PORT, async () => {
   console.log(`🚀 Server running on http://localhost:${PORT}`);
+  console.log('💎 Using RLUSD for accounting (XRP escrows as backing)');
+  console.log(`📊 Conversion Rate: 1 XRP = ${xrplClient.getConversionRate()} RLUSD`);
   console.log('📡 Connecting to XRPL...');
   
   try {

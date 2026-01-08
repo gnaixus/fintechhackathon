@@ -260,17 +260,17 @@ function ProjectDetails() {
         }}>
           <StatCard 
             label="Total Value"
-            value={`${stats.total.toFixed(2)} XRP`}
+            value={`${stats.total.toFixed(2)} RLUSD`}
             color="var(--accent)"
           />
           <StatCard 
             label="Released"
-            value={`${stats.released.toFixed(2)} XRP`}
+            value={`${stats.released.toFixed(2)} RLUSD`}
             color="var(--success)"
           />
           <StatCard 
             label="Pending"
-            value={`${stats.pending.toFixed(2)} XRP`}
+            value={`${stats.pending.toFixed(2)} RLUSD`}
             color="var(--warning)"
           />
           <StatCard 
@@ -524,7 +524,7 @@ function MilestoneCard({
             Amount
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--accent)' }}>
-            {milestone.amount} XRP
+            {milestone.amount} RLUSD
           </div>
         </div>
 

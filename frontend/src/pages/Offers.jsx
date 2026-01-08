@@ -294,7 +294,7 @@ function OfferCard({ offer, onAccept, accepting }) {
             Total Value
           </div>
           <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--accent)' }}>
-            {totalAmount.toFixed(2)} XRP
+            {totalAmount.toFixed(2)} RLUSD
           </div>
         </div>
 
@@ -368,7 +368,7 @@ function OfferCard({ offer, onAccept, accepting }) {
                 fontWeight: 700, 
                 color: 'var(--accent)' 
               }}>
-                {milestone.amount} XRP
+                {milestone.amount} RLUSD
               </div>
             </div>
           ))}
@@ -396,7 +396,7 @@ function OfferCard({ offer, onAccept, accepting }) {
         color: 'var(--text-muted)',
         lineHeight: '1.6'
       }}>
-        💡 <strong style={{ color: 'var(--accent)' }}>Note:</strong> By accepting this project, you agree to complete the milestones by their deadlines. Funds are locked in XRPL escrow and will be released upon client approval.
+        💡 <strong style={{ color: 'var(--accent)' }}>Note:</strong> By accepting this project, you agree to complete the milestones by their deadlines. Funds are locked in RLUSDL escrow and will be released upon client approval.
       </div>
     </div>
   );

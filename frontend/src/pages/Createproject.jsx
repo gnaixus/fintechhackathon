@@ -19,8 +19,8 @@ function CreateProject() {
     ]
   });
 
-  // ✅ ADDED: XRPL address validation
-  const isValidXRPLAddress = (address) => {
+  // ✅ ADDED: RLUSDL address validation
+  const isValidRLUSDLAddress = (address) => {
     return /^r[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(address);
   };
 
@@ -53,8 +53,8 @@ function CreateProject() {
     setSuccess(false);
 
     // ✅ ADDED: Validate freelancer address
-    if (!isValidXRPLAddress(formData.freelancerAddress)) {
-      setError('Invalid XRPL address format. Address must start with "r" and be 25-34 characters long.');
+    if (!isValidRLUSDLAddress(formData.freelancerAddress)) {
+      setError('Invalid RLUSDL address format. Address must start with "r" and be 25-34 characters long.');
       setLoading(false);
       return;
     }
@@ -107,7 +107,7 @@ function CreateProject() {
         
         <h1 style={{ marginBottom: '1rem' }}>Create Project</h1>
         <p style={{ marginBottom: '1rem', fontSize: '1.125rem' }}>
-          Set up a new project with milestone-based escrow payments on XRPL
+          Set up a new project with milestone-based escrow payments on RLUSDL
         </p>
 
         {/* Wallet Info */}
@@ -139,7 +139,7 @@ function CreateProject() {
               Available Balance:
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent)' }}>
-              {wallet.balance} XRP
+              {wallet.balance} RLUSD
             </div>
           </div>
         </div>
@@ -157,7 +157,7 @@ function CreateProject() {
               ✅ Project Created Successfully!
             </h3>
             <p style={{ fontSize: '0.9rem' }}>
-              Escrows have been created on XRPL. Redirecting to dashboard...
+              Escrows have been created on RLUSDL. Redirecting to dashboard...
             </p>
           </div>
         )}
@@ -237,7 +237,7 @@ function CreateProject() {
           {/* Freelancer Address */}
           <div style={{ marginBottom: '3rem' }}>
             <label style={{ display: 'block', marginBottom: '0.5rem', fontWeight: 600 }}>
-              Freelancer XRPL Address *
+              Freelancer RLUSDL Address *
             </label>
             <input
               type="text"
@@ -257,7 +257,7 @@ function CreateProject() {
               }}
             />
             <small style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem', display: 'block' }}>
-              Enter the freelancer's XRPL wallet address (must start with 'r')
+              Enter the freelancer's RLUSDL wallet address (must start with 'r')
             </small>
           </div>
 
@@ -342,7 +342,7 @@ function CreateProject() {
                   {/* Amount */}
                   <div>
                     <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                      Amount (XRP)
+                      Amount (RLUSD)
                     </label>
                     <input
                       type="number"
@@ -405,7 +405,7 @@ function CreateProject() {
                   Total Project Cost
                 </div>
                 <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--accent)' }}>
-                  {totalCost.toFixed(2)} XRP
+                  {totalCost.toFixed(2)} RLUSD
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>

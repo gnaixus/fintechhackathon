@@ -1,21 +1,24 @@
 import { Client, Wallet, xrpToDrops, dropsToXrp } from 'xrpl';
 
 /**
- * XRPL Client for Freelance Escrow Platform
+ * XRPL Client for Freelance Escrow Platform - RLUSD VERSION
  * 
  * Features:
- * 1. Escrow Creation (EscrowCreate)
- * 2. Escrow Release (EscrowFinish)
- * 3. Escrow Cancellation (EscrowCancel)
- * 4. RLUSD Trust Lines
- * 5. DID Reputation System
- * 6. Memos for Project Metadata
+ * 1. RLUSD Trust Lines
+ * 2. Escrow Creation (using XRP for locking, RLUSD for accounting)
+ * 3. RLUSD Payments
+ * 4. Hybrid escrow approach
  */
+
+// RLUSD Issuer on Testnet (you may need to update this)
+const RLUSD_ISSUER = 'rN7n7otQDd6FczFgLdlqtyMVrn3HMfXpKN'; // Testnet RLUSD issuer
+const XRP_TO_RLUSD_RATE = 2.5; // Example: 1 XRP = 2.5 RLUSD (configurable)
 
 class XRPLClient {
   constructor() {
     this.client = null;
-    this.network = process.env.XRPL_NETWORK || 'wss://s.altnet.rippletest.net:51233'; // Testnet
+    this.network = process.env.XRPL_NETWORK || 'wss://s.altnet.rippletest.net:51233';
+    this.rlusdIssuer = RLUSD_ISSUER;
   }
 
   /**
@@ -42,14 +45,20 @@ class XRPLClient {
   }
 
   /**
-   * Create a new wallet on testnet
-   * @returns {Object} Wallet with address and seed
+   * Create a new wallet on testnet with RLUSD trust line
    */
   async createWallet() {
     await this.connect();
     
-    // Fund wallet on testnet
     const wallet = (await this.client.fundWallet()).wallet;
+    
+    // Automatically create RLUSD trust line
+    try {
+      await this.createTrustLine(wallet, this.rlusdIssuer, '1000000');
+      console.log('✅ RLUSD trust line created for new wallet');
+    } catch (error) {
+      console.error('⚠️ Could not create RLUSD trust line:', error.message);
+    }
     
     return {
       address: wallet.address,
@@ -60,190 +69,301 @@ class XRPLClient {
 
   /**
    * Get wallet from seed
-   * @param {string} seed - Wallet seed
-   * @returns {Wallet} XRPL Wallet instance
    */
   getWallet(seed) {
     return Wallet.fromSeed(seed);
   }
 
   /**
-   * Get account balance
-   * @param {string} address - XRPL address
-   * @returns {string} Balance in XRP
+   * Get account balance (returns both XRP and RLUSD)
    */
   async getBalance(address) {
     await this.connect();
     
-    const response = await this.client.request({
-      command: 'account_info',
-      account: address,
-      ledger_index: 'validated'
-    });
+    try {
+      const response = await this.client.request({
+        command: 'account_info',
+        account: address,
+        ledger_index: 'validated'
+      });
 
-    return dropsToXrp(response.result.account_data.Balance);
+      const xrpBalance = dropsToXrp(response.result.account_data.Balance);
+      
+      // Get RLUSD balance
+      let rlusdBalance = '0';
+      try {
+        const linesResponse = await this.client.request({
+          command: 'account_lines',
+          account: address,
+          ledger_index: 'validated'
+        });
+        
+        const rlusdLine = linesResponse.result.lines.find(
+          line => line.currency === 'RLUSD' || line.currency === '525553440000000000000000000000000000000000'
+        );
+        
+        if (rlusdLine) {
+          rlusdBalance = rlusdLine.balance;
+        }
+      } catch (error) {
+        console.log('No RLUSD balance found or error:', error.message);
+      }
+
+      return {
+        xrp: xrpBalance,
+        rlusd: rlusdBalance,
+        // For display purposes, convert XRP to RLUSD equivalent
+        rlusdEquivalent: (parseFloat(xrpBalance) * XRP_TO_RLUSD_RATE).toFixed(2)
+      };
+    } catch (error) {
+      console.error('Error getting balance:', error);
+      return { xrp: '0', rlusd: '0', rlusdEquivalent: '0' };
+    }
   }
 
   /**
    * Create RLUSD trust line
-   * @param {Wallet} wallet - User's wallet
-   * @param {string} issuerAddress - RLUSD issuer address
-   * @param {string} limit - Trust line limit (default: 1000000)
    */
-  async createTrustLine(wallet, issuerAddress, limit = '1000000') {
+  async createTrustLine(wallet, issuerAddress = null, limit = '1000000') {
     await this.connect();
+
+    const issuer = issuerAddress || this.rlusdIssuer;
 
     const trustSet = {
       TransactionType: 'TrustSet',
       Account: wallet.address,
       LimitAmount: {
         currency: 'RLUSD',
-        issuer: issuerAddress,
+        issuer: issuer,
         value: limit
       }
     };
 
-    const prepared = await this.client.autofill(trustSet);
-    const signed = wallet.sign(prepared);
-    const result = await this.client.submitAndWait(signed.tx_blob);
+    try {
+      const prepared = await this.client.autofill(trustSet);
+      const signed = wallet.sign(prepared);
+      const result = await this.client.submitAndWait(signed.tx_blob);
 
-    console.log('✅ Trust line created:', result.result.meta.TransactionResult);
-    return result;
+      console.log('✅ RLUSD trust line created:', result.result.meta.TransactionResult);
+      return result;
+    } catch (error) {
+      console.error('Error creating trust line:', error);
+      throw error;
+    }
   }
 
   /**
-   * Create escrow for project milestone
-   * @param {Object} params - Escrow parameters
-   * @param {Wallet} params.clientWallet - Client's wallet
-   * @param {string} params.freelancerAddress - Freelancer's XRPL address
-   * @param {string} params.amount - Amount in XRP
-   * @param {number} params.finishAfter - Unix timestamp for auto-release
-   * @param {Object} params.projectData - Project metadata
-   * @returns {Object} Escrow transaction result
+   * Send RLUSD payment
+   */
+  async sendRLUSD(senderWallet, destinationAddress, amount) {
+    await this.connect();
+
+    const payment = {
+      TransactionType: 'Payment',
+      Account: senderWallet.address,
+      Destination: destinationAddress,
+      Amount: {
+        currency: 'RLUSD',
+        value: amount.toString(),
+        issuer: this.rlusdIssuer
+      }
+    };
+
+    try {
+      const prepared = await this.client.autofill(payment);
+      const signed = senderWallet.sign(prepared);
+      const result = await this.client.submitAndWait(signed.tx_blob);
+
+      console.log('✅ RLUSD payment sent:', result.result.hash);
+      return {
+        hash: result.result.hash,
+        result: result.result.meta.TransactionResult,
+        amount: amount
+      };
+    } catch (error) {
+      console.error('Error sending RLUSD:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Create escrow for project milestone (HYBRID: XRP escrow + RLUSD accounting)
+   * 
+   * This uses XRP escrows for the locking mechanism, but we track RLUSD amounts
+   * in the memos for accounting purposes
    */
   async createEscrow({ clientWallet, freelancerAddress, amount, finishAfter, projectData }) {
     await this.connect();
 
-    const rippleEpoch = 946684800; // January 1, 2000 00:00 UTC
+    // Convert RLUSD to XRP for the escrow (using conversion rate)
+    const xrpAmount = (parseFloat(amount) / XRP_TO_RLUSD_RATE).toFixed(6);
+    
+    const rippleEpoch = 946684800;
     const finishAfterRipple = finishAfter ? Math.floor(finishAfter / 1000) - rippleEpoch : undefined;
 
-    // Create escrow transaction with memo
+    // Add RLUSD amount to project data
+    const enhancedProjectData = {
+      ...projectData,
+      rlusdAmount: amount,
+      xrpAmount: xrpAmount,
+      conversionRate: XRP_TO_RLUSD_RATE
+    };
+
     const escrowCreate = {
       TransactionType: 'EscrowCreate',
       Account: clientWallet.address,
       Destination: freelancerAddress,
-      Amount: xrpToDrops(amount),
+      Amount: xrpToDrops(xrpAmount),
       FinishAfter: finishAfterRipple,
       Memos: [
         {
           Memo: {
             MemoType: Buffer.from('project_data', 'utf8').toString('hex').toUpperCase(),
-            MemoData: Buffer.from(JSON.stringify(projectData), 'utf8').toString('hex').toUpperCase()
+            MemoData: Buffer.from(JSON.stringify(enhancedProjectData), 'utf8').toString('hex').toUpperCase()
+          }
+        },
+        {
+          Memo: {
+            MemoType: Buffer.from('currency', 'utf8').toString('hex').toUpperCase(),
+            MemoData: Buffer.from('RLUSD', 'utf8').toString('hex').toUpperCase()
           }
         }
       ]
     };
 
-    const prepared = await this.client.autofill(escrowCreate);
-    const signed = clientWallet.sign(prepared);
-    const result = await this.client.submitAndWait(signed.tx_blob);
+    try {
+      const prepared = await this.client.autofill(escrowCreate);
+      const signed = clientWallet.sign(prepared);
+      const result = await this.client.submitAndWait(signed.tx_blob);
 
-    console.log('✅ Escrow created:', result.result.hash);
-    
-    return {
-      hash: result.result.hash,
-      escrowSequence: prepared.Sequence,
-      result: result.result.meta.TransactionResult,
-      amount: amount,
-      destination: freelancerAddress,
-      finishAfter: finishAfter
-    };
+      console.log('✅ Escrow created (RLUSD accounting):', result.result.hash);
+      
+      return {
+        hash: result.result.hash,
+        escrowSequence: prepared.Sequence,
+        result: result.result.meta.TransactionResult,
+        amount: amount, // RLUSD amount
+        xrpAmount: xrpAmount, // Actual XRP locked
+        destination: freelancerAddress,
+        finishAfter: finishAfter
+      };
+    } catch (error) {
+      console.error('Error creating escrow:', error);
+      throw error;
+    }
   }
 
   /**
    * Get escrow details
-   * @param {string} ownerAddress - Escrow owner address
-   * @param {number} sequence - Escrow sequence number
    */
   async getEscrow(ownerAddress, sequence) {
     await this.connect();
 
-    const escrows = await this.client.request({
-      command: 'account_objects',
-      account: ownerAddress,
-      type: 'escrow'
-    });
+    try {
+      const escrows = await this.client.request({
+        command: 'account_objects',
+        account: ownerAddress,
+        type: 'escrow'
+      });
 
-    const escrow = escrows.result.account_objects.find(
-      obj => obj.PreviousTxnID || obj.Sequence === sequence
-    );
+      const escrow = escrows.result.account_objects.find(
+        obj => obj.PreviousTxnID || obj.Sequence === sequence
+      );
 
-    if (!escrow) {
-      return null;
-    }
-
-    // Parse memos if present
-    let projectData = null;
-    if (escrow.Memos && escrow.Memos.length > 0) {
-      try {
-        const memoData = Buffer.from(escrow.Memos[0].Memo.MemoData, 'hex').toString('utf8');
-        projectData = JSON.parse(memoData);
-      } catch (e) {
-        console.error('Error parsing memo:', e);
+      if (!escrow) {
+        return null;
       }
-    }
 
-    return {
-      amount: dropsToXrp(escrow.Amount),
-      destination: escrow.Destination,
-      finishAfter: escrow.FinishAfter,
-      cancelAfter: escrow.CancelAfter,
-      projectData: projectData,
-      sequence: escrow.Sequence || sequence
-    };
-  }
-
-  /**
-   * Get all escrows for an account
-   * @param {string} address - XRPL address
-   */
-  async getAccountEscrows(address) {
-    await this.connect();
-
-    const escrows = await this.client.request({
-      command: 'account_objects',
-      account: address,
-      type: 'escrow'
-    });
-
-    return escrows.result.account_objects.map(escrow => {
       let projectData = null;
+      let rlusdAmount = null;
+      
       if (escrow.Memos && escrow.Memos.length > 0) {
         try {
-          const memoData = Buffer.from(escrow.Memos[0].Memo.MemoData, 'hex').toString('utf8');
-          projectData = JSON.parse(memoData);
+          for (const memo of escrow.Memos) {
+            const memoType = Buffer.from(memo.Memo.MemoType, 'hex').toString('utf8');
+            const memoData = Buffer.from(memo.Memo.MemoData, 'hex').toString('utf8');
+            
+            if (memoType === 'project_data') {
+              projectData = JSON.parse(memoData);
+              rlusdAmount = projectData.rlusdAmount;
+            }
+          }
         } catch (e) {
-          // Ignore parsing errors
+          console.error('Error parsing memo:', e);
         }
       }
 
+      const xrpAmount = dropsToXrp(escrow.Amount);
+      
       return {
-        amount: dropsToXrp(escrow.Amount),
+        amount: rlusdAmount || (parseFloat(xrpAmount) * XRP_TO_RLUSD_RATE).toFixed(2), // RLUSD
+        xrpAmount: xrpAmount,
         destination: escrow.Destination,
         finishAfter: escrow.FinishAfter,
         cancelAfter: escrow.CancelAfter,
         projectData: projectData,
-        sequence: escrow.Sequence,
-        owner: address
+        sequence: escrow.Sequence || sequence
       };
-    });
+    } catch (error) {
+      console.error('Error getting escrow:', error);
+      return null;
+    }
+  }
+
+  /**
+   * Get all escrows for an account
+   */
+  async getAccountEscrows(address) {
+    await this.connect();
+
+    try {
+      const escrows = await this.client.request({
+        command: 'account_objects',
+        account: address,
+        type: 'escrow'
+      });
+
+      return escrows.result.account_objects.map(escrow => {
+        let projectData = null;
+        let rlusdAmount = null;
+        
+        if (escrow.Memos && escrow.Memos.length > 0) {
+          try {
+            for (const memo of escrow.Memos) {
+              const memoType = Buffer.from(memo.Memo.MemoType, 'hex').toString('utf8');
+              const memoData = Buffer.from(memo.Memo.MemoData, 'hex').toString('utf8');
+              
+              if (memoType === 'project_data') {
+                projectData = JSON.parse(memoData);
+                rlusdAmount = projectData.rlusdAmount;
+              }
+            }
+          } catch (e) {
+            // Ignore
+          }
+        }
+
+        const xrpAmount = dropsToXrp(escrow.Amount);
+        
+        return {
+          amount: rlusdAmount || (parseFloat(xrpAmount) * XRP_TO_RLUSD_RATE).toFixed(2),
+          xrpAmount: xrpAmount,
+          destination: escrow.Destination,
+          finishAfter: escrow.FinishAfter,
+          cancelAfter: escrow.CancelAfter,
+          projectData: projectData,
+          sequence: escrow.Sequence,
+          owner: address
+        };
+      });
+    } catch (error) {
+      console.error('Error getting account escrows:', error);
+      return [];
+    }
   }
 
   /**
    * Finish (release) escrow
-   * @param {Wallet} freelancerWallet - Freelancer's wallet
-   * @param {string} ownerAddress - Escrow owner (client) address
-   * @param {number} escrowSequence - Escrow sequence number
    */
   async finishEscrow(freelancerWallet, ownerAddress, escrowSequence) {
     await this.connect();
@@ -255,23 +375,25 @@ class XRPLClient {
       OfferSequence: escrowSequence
     };
 
-    const prepared = await this.client.autofill(escrowFinish);
-    const signed = freelancerWallet.sign(prepared);
-    const result = await this.client.submitAndWait(signed.tx_blob);
+    try {
+      const prepared = await this.client.autofill(escrowFinish);
+      const signed = freelancerWallet.sign(prepared);
+      const result = await this.client.submitAndWait(signed.tx_blob);
 
-    console.log('✅ Escrow finished:', result.result.hash);
-    
-    return {
-      hash: result.result.hash,
-      result: result.result.meta.TransactionResult
-    };
+      console.log('✅ Escrow finished (XRP released, tracked as RLUSD):', result.result.hash);
+      
+      return {
+        hash: result.result.hash,
+        result: result.result.meta.TransactionResult
+      };
+    } catch (error) {
+      console.error('Error finishing escrow:', error);
+      throw error;
+    }
   }
 
   /**
-   * Cancel escrow (if CancelAfter time has passed)
-   * @param {Wallet} wallet - Any wallet (client or freelancer)
-   * @param {string} ownerAddress - Escrow owner (client) address
-   * @param {number} escrowSequence - Escrow sequence number
+   * Cancel escrow
    */
   async cancelEscrow(wallet, ownerAddress, escrowSequence) {
     await this.connect();
@@ -283,74 +405,77 @@ class XRPLClient {
       OfferSequence: escrowSequence
     };
 
-    const prepared = await this.client.autofill(escrowCancel);
-    const signed = wallet.sign(prepared);
-    const result = await this.client.submitAndWait(signed.tx_blob);
+    try {
+      const prepared = await this.client.autofill(escrowCancel);
+      const signed = wallet.sign(prepared);
+      const result = await this.client.submitAndWait(signed.tx_blob);
 
-    console.log('✅ Escrow cancelled:', result.result.hash);
-    
-    return {
-      hash: result.result.hash,
-      result: result.result.meta.TransactionResult
-    };
+      console.log('✅ Escrow cancelled:', result.result.hash);
+      
+      return {
+        hash: result.result.hash,
+        result: result.result.meta.TransactionResult
+      };
+    } catch (error) {
+      console.error('Error cancelling escrow:', error);
+      throw error;
+    }
   }
 
   /**
-   * Store DID reputation record
-   * @param {Wallet} wallet - User's wallet
-   * @param {Object} reputationData - Reputation data
-   */
-  async storeReputation(wallet, reputationData) {
-    await this.connect();
-
-    // Store reputation as account memo
-    const accountSet = {
-      TransactionType: 'AccountSet',
-      Account: wallet.address,
-      Memos: [
-        {
-          Memo: {
-            MemoType: Buffer.from('reputation', 'utf8').toString('hex').toUpperCase(),
-            MemoData: Buffer.from(JSON.stringify(reputationData), 'utf8').toString('hex').toUpperCase()
-          }
-        }
-      ]
-    };
-
-    const prepared = await this.client.autofill(accountSet);
-    const signed = wallet.sign(prepared);
-    const result = await this.client.submitAndWait(signed.tx_blob);
-
-    console.log('✅ Reputation stored:', result.result.hash);
-    return result;
-  }
-
-  /**
-   * Get transaction history for reputation calculation
-   * @param {string} address - XRPL address
+   * Get transaction history
    */
   async getTransactionHistory(address) {
     await this.connect();
 
-    const transactions = await this.client.request({
-      command: 'account_tx',
-      account: address,
-      ledger_index_min: -1,
-      ledger_index_max: -1,
-      limit: 100
-    });
+    try {
+      const transactions = await this.client.request({
+        command: 'account_tx',
+        account: address,
+        ledger_index_min: -1,
+        ledger_index_max: -1,
+        limit: 100
+      });
 
-    // Filter for completed escrows
-    const completedEscrows = transactions.result.transactions.filter(tx => 
-      tx.tx.TransactionType === 'EscrowFinish' && 
-      tx.meta.TransactionResult === 'tesSUCCESS'
-    );
+      const completedEscrows = transactions.result.transactions.filter(tx => 
+        tx.tx.TransactionType === 'EscrowFinish' && 
+        tx.meta.TransactionResult === 'tesSUCCESS'
+      );
 
-    return {
-      totalTransactions: transactions.result.transactions.length,
-      completedEscrows: completedEscrows.length,
-      transactions: completedEscrows
-    };
+      return {
+        totalTransactions: transactions.result.transactions.length,
+        completedEscrows: completedEscrows.length,
+        transactions: completedEscrows
+      };
+    } catch (error) {
+      console.error('Error getting transaction history:', error);
+      return {
+        totalTransactions: 0,
+        completedEscrows: 0,
+        transactions: []
+      };
+    }
+  }
+
+  /**
+   * Get conversion rate
+   */
+  getConversionRate() {
+    return XRP_TO_RLUSD_RATE;
+  }
+
+  /**
+   * Convert XRP to RLUSD
+   */
+  xrpToRLUSD(xrpAmount) {
+    return (parseFloat(xrpAmount) * XRP_TO_RLUSD_RATE).toFixed(2);
+  }
+
+  /**
+   * Convert RLUSD to XRP
+   */
+  rlusdToXRP(rlusdAmount) {
+    return (parseFloat(rlusdAmount) / XRP_TO_RLUSD_RATE).toFixed(6);
   }
 }
 

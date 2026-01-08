@@ -106,7 +106,7 @@ function ProjectCard({ project }) {
         <div>
           <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>Total Value</div>
           <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent)' }}>
-            {totalAmount} XRP
+            {totalAmount} RLUSD
           </div>
         </div>
         

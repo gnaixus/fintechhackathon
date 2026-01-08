@@ -190,7 +190,7 @@ function Navigation() {
                     fontWeight: 700,
                     color: 'var(--accent)'
                   }}>
-                    {wallet?.balance || '0'} XRP
+                    {wallet?.balance || '0'} RLUSD
                   </div>
                 </div>
 

@@ -133,14 +133,14 @@ function Footer() {
               Frescrow
             </div>
             <p style={{ fontSize: '0.9rem' }}>
-              Trust-free freelance payments powered by the XRP Ledger.
+              Trust-free freelance payments powered by the RLUSD Ledger.
             </p>
           </div>
           
           <div>
             <h4 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Resources</h4>
             <ul style={{ listStyle: 'none', padding: 0 }}>
-              <FooterLink href="https://xrpl.org" text="XRPL Documentation" />
+              <FooterLink href="https://xrpl.org" text="RLUSDL Documentation" />
               <FooterLink href="https://testnet.xrpl.org" text="Testnet Explorer" />
               <FooterLink href="https://docs.anthropic.com" text="API Docs" />
             </ul>
@@ -150,7 +150,7 @@ function Footer() {
             <h4 style={{ marginBottom: '1rem', fontSize: '1rem' }}>Built With</h4>
             <ul style={{ listStyle: 'none', padding: 0 }}>
               <li style={{ marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
-                ⬡ XRPL Escrow
+                ⬡ RLUSDL Escrow
               </li>
               <li style={{ marginBottom: '0.5rem', color: 'var(--text-muted)', fontSize: '0.9rem' }}>
                 💎 RLUSD

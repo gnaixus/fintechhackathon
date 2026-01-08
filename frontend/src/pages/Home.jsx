@@ -14,7 +14,7 @@ function Home() {
             <div className="hero-text">
               <div className="badge">
                 <span>⚡</span>
-                Powered by XRPL
+                Powered by RLUSDL
               </div>
               
               <h1 className="hero-title">
@@ -22,7 +22,7 @@ function Home() {
               </h1>
               
               <p className="hero-subtitle">
-                Secure milestone-based escrow using the XRP Ledger. 
+                Secure milestone-based escrow using the RLUSD Ledger. 
                 No middlemen. No fees. Complete transparency.
               </p>
               
@@ -83,7 +83,7 @@ function Home() {
               fontSize: '1.125rem', 
               color: 'var(--text-muted)'
             }}>
-              Smart escrow powered by the XRP Ledger
+              Smart escrow powered by the RLUSD Ledger
             </p>
           </div>
           
@@ -97,7 +97,7 @@ function Home() {
           }}>
             <FeatureCard 
               title="Escrow Protection"
-              description="Funds are locked on-chain using XRPL's native escrow. Neither party can touch the money until milestones are approved."
+              description="Funds are locked on-chain using RLUSDL's native escrow. Neither party can touch the money until milestones are approved."
             />
             
             <FeatureCard 
@@ -112,7 +112,7 @@ function Home() {
             
             <FeatureCard 
               title="Instant Settlement"
-              description="Payments settle in seconds on XRPL. No waiting days for bank transfers or platform approvals."
+              description="Payments settle in seconds on RLUSDL. No waiting days for bank transfers or platform approvals."
             />
             
             <FeatureCard 
@@ -151,7 +151,7 @@ function Home() {
             color: 'var(--text-muted)',
             lineHeight: '1.6'
           }}>
-            Create your first escrow project in minutes. No signup required—just your XRPL wallet.
+            Create your first escrow project in minutes. No signup required—just your RLUSDL wallet.
           </p>
           <Link 
             to="/create-project" 

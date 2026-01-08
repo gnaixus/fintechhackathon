@@ -23,7 +23,7 @@ function WalletConnect({ onConnect }) {
     try {
       // Validate seed format (basic check)
       if (!seed.startsWith('s')) {
-        throw new Error('Invalid seed format. XRPL seeds start with "s"');
+        throw new Error('Invalid seed format. RLUSDL seeds start with "s"');
       }
 
       // Get wallet info from backend
@@ -168,7 +168,7 @@ function WalletConnect({ onConnect }) {
               Connect Your Wallet
             </h2>
             <p style={{ color: 'var(--text-muted)', fontSize: '0.95rem' }}>
-              Enter your XRPL wallet seed to access the platform
+              Enter your RLUSDL wallet seed to access the platform
             </p>
           </div>
 
@@ -318,7 +318,7 @@ function WalletConnect({ onConnect }) {
             borderRadius: '12px'
           }}>
             <p style={{ fontSize: '0.875rem', color: 'var(--text-muted)', lineHeight: '1.6' }}>
-              💡 <strong style={{ color: 'var(--accent)' }}>New here?</strong> Create a testnet wallet to get started with 1000 XRP for testing. Your wallet seed is your private key—keep it safe!
+              💡 <strong style={{ color: 'var(--accent)' }}>New here?</strong> Create a testnet wallet to get started with 1000 RLUSD for testing. Your wallet seed is your private key—keep it safe!
             </p>
           </div>
         </div>
@@ -331,7 +331,7 @@ function WalletConnect({ onConnect }) {
           fontSize: '0.875rem',
           animation: 'fadeIn 1s ease-out 0.5s both'
         }}>
-          <p>Powered by XRPL • Testnet Environment</p>
+          <p>Powered by RLUSDL • Testnet Environment</p>
         </div>
       </div>
 
