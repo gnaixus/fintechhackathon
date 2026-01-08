@@ -1,0 +1,4 @@
+fastapi
+uvicorn
+xrpl-py
+python-dotenv
