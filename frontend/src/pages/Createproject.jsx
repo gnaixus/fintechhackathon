@@ -122,11 +122,6 @@ function CreateProject() {
             Set up a new project with milestone-based escrow payments on XRPL
           </p>
         </div>
-        
-        <h1 style={{ marginBottom: '1rem' }}>Create Project</h1>
-        <p style={{ marginBottom: '1rem', fontSize: '1.125rem' }}>
-          Set up a new project with milestone-based escrow payments on XRPL
-        </p>
 
         {/* Wallet Info */}
         <div style={{
@@ -176,7 +171,7 @@ function CreateProject() {
               Available Balance
             </div>
             <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent)' }}>
-              {wallet.balance} XRP
+              {wallet.balance} RLUSD
             </div>
           </div>
         </div>
@@ -507,10 +502,15 @@ function CreateProject() {
                     />
                   </div>
 
-                  {/* Amount */}
+                  {/* Amount - CHANGED TO RLUSD */}
                   <div>
-                    <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.875rem' }}>
-                      Amount (XRP)
+                    <label style={{ 
+                      display: 'block', 
+                      marginBottom: '0.5rem', 
+                      fontSize: '0.9rem',
+                      fontWeight: 600
+                    }}>
+                      Amount (RLUSD)
                     </label>
                     <input
                       type="number"
@@ -519,7 +519,7 @@ function CreateProject() {
                       step="0.01"
                       value={milestone.amount}
                       onChange={(e) => updateMilestone(index, 'amount', e.target.value)}
-                      placeholder="100"
+                      placeholder="250"
                       style={{
                         width: '100%',
                         padding: '0.875rem 1rem',
@@ -578,7 +578,7 @@ function CreateProject() {
             ))}
           </div>
 
-          {/* Total Cost Summary */}
+          {/* Total Cost Summary - CHANGED TO RLUSD */}
           <div style={{
             background: 'linear-gradient(135deg, rgba(0, 229, 204, 0.15), rgba(0, 201, 183, 0.05))',
             border: '1px solid rgba(0, 229, 204, 0.4)',
@@ -592,7 +592,7 @@ function CreateProject() {
                   Total Project Cost
                 </div>
                 <div style={{ fontSize: '2rem', fontWeight: 700, color: 'var(--accent)' }}>
-                  {totalCost.toFixed(2)} XRP
+                  {totalCost.toFixed(2)} RLUSD
                 </div>
               </div>
               <div style={{ textAlign: 'right' }}>
