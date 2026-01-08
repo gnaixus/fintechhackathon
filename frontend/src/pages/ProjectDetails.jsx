@@ -7,17 +7,18 @@ const API_URL = 'http://localhost:3001/api';
 
 /**
  * Project Details Page
- * View project status, milestones, and release payments
+ * View project status, milestones, submit work, approve work, and release payments
  */
 function ProjectDetails() {
   const { projectId } = useParams();
   const navigate = useNavigate();
-  const { wallet } = useWallet();
+  const { wallet, refreshBalance } = useWallet();
   
   const [project, setProject] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [releasingMilestone, setReleasingMilestone] = useState(null);
+  const [approvingMilestone, setApprovingMilestone] = useState(null);
 
   // Load project details
   useEffect(() => {
@@ -37,7 +38,52 @@ function ProjectDetails() {
     }
   };
 
-  // Release milestone payment
+  // Submit work for a milestone
+  const handleSubmitWork = async (milestoneIndex, submission) => {
+    setError('');
+
+    try {
+      await axios.post(`${API_URL}/milestones/submit`, {
+        projectId: project.id,
+        milestoneIndex,
+        submission
+      });
+
+      alert('✅ Work submitted successfully!');
+      await loadProject();
+    } catch (err) {
+      console.error('Error submitting work:', err);
+      setError(err.response?.data?.error || 'Failed to submit work');
+    }
+  };
+
+  // Approve work (client only)
+  const handleApproveWork = async (milestoneIndex) => {
+    if (!window.confirm('Are you sure you want to approve this work? The freelancer will then be able to release the payment.')) {
+      return;
+    }
+
+    setApprovingMilestone(milestoneIndex);
+    setError('');
+
+    try {
+      await axios.post(`${API_URL}/milestones/approve-work`, {
+        projectId: project.id,
+        milestoneIndex,
+        clientAddress: wallet.address
+      });
+
+      alert('✅ Work approved! Freelancer can now release payment.');
+      await loadProject();
+    } catch (err) {
+      console.error('Error approving work:', err);
+      setError(err.response?.data?.error || 'Failed to approve work');
+    } finally {
+      setApprovingMilestone(null);
+    }
+  };
+
+  // Release milestone payment (freelancer only, after approval)
   const handleReleaseMilestone = async (milestoneIndex) => {
     if (!window.confirm('Are you sure you want to release this milestone payment?')) {
       return;
@@ -55,10 +101,15 @@ function ProjectDetails() {
 
       console.log('Milestone released:', response.data);
       
+      // Refresh balance after releasing payment
+      if (refreshBalance) {
+        await refreshBalance();
+      }
+
       // Reload project to show updated status
       await loadProject();
       
-      alert('✅ Milestone payment released successfully!');
+      alert('✅ Milestone payment released successfully! Your balance has been updated.');
     } catch (err) {
       console.error('Error releasing milestone:', err);
       setError(err.response?.data?.error || 'Failed to release milestone');
@@ -281,8 +332,11 @@ function ProjectDetails() {
                 index={index}
                 isFreelancer={isFreelancer}
                 isClient={isClient}
+                onSubmitWork={(submission) => handleSubmitWork(index, submission)}
+                onApproveWork={() => handleApproveWork(index)}
                 onRelease={() => handleReleaseMilestone(index)}
                 releasing={releasingMilestone === index}
+                approving={approvingMilestone === index}
               />
             ))}
           </div>
@@ -400,19 +454,48 @@ function StatCard({ label, value, color }) {
 /**
  * Milestone Card Component
  */
-function MilestoneCard({ milestone, index, isFreelancer, isClient, onRelease, releasing }) {
+function MilestoneCard({ 
+  milestone, 
+  index, 
+  isFreelancer, 
+  isClient, 
+  onSubmitWork, 
+  onApproveWork,
+  onRelease, 
+  releasing,
+  approving 
+}) {
+  const [showSubmitForm, setShowSubmitForm] = useState(false);
+  const [submissionData, setSubmissionData] = useState({
+    description: '',
+    fileUrl: ''
+  });
+
   const isPending = milestone.status === 'pending';
+  const isSubmitted = milestone.status === 'submitted';
+  const isApproved = milestone.status === 'approved';
   const isReleased = milestone.status === 'released';
+  
   const deadline = new Date(milestone.deadline);
   const isPastDeadline = new Date() > deadline;
-  const canRelease = isFreelancer && isPending && isPastDeadline;
+
+  const handleSubmit = () => {
+    if (!submissionData.description.trim()) {
+      alert('Please add a description of your work');
+      return;
+    }
+    
+    onSubmitWork(submissionData);
+    setShowSubmitForm(false);
+    setSubmissionData({ description: '', fileUrl: '' });
+  };
 
   return (
     <div style={{
       padding: '2rem',
       background: 'rgba(26, 31, 58, 0.6)',
       borderRadius: '16px',
-      border: `2px solid ${isReleased ? 'var(--success)' : isPending ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)'}`,
+      border: `2px solid ${isReleased ? 'var(--success)' : isApproved ? 'rgba(0, 229, 204, 0.5)' : isSubmitted ? 'rgba(255, 170, 0, 0.5)' : 'rgba(255, 255, 255, 0.1)'}`,
       opacity: isReleased ? 0.7 : 1,
       transition: 'all 0.3s ease'
     }}>
@@ -423,7 +506,7 @@ function MilestoneCard({ milestone, index, isFreelancer, isClient, onRelease, re
               width: '40px',
               height: '40px',
               borderRadius: '50%',
-              background: isReleased ? 'var(--success)' : 'var(--accent)',
+              background: isReleased ? 'var(--success)' : isApproved ? 'var(--accent)' : isSubmitted ? 'var(--warning)' : 'var(--accent)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
@@ -438,15 +521,15 @@ function MilestoneCard({ milestone, index, isFreelancer, isClient, onRelease, re
         </div>
 
         <div style={{
-          background: isReleased ? 'rgba(0, 214, 143, 0.1)' : isPending ? 'rgba(255, 170, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)',
-          border: `1px solid ${isReleased ? 'var(--success)' : isPending ? 'var(--warning)' : 'rgba(255, 255, 255, 0.1)'}`,
+          background: isReleased ? 'rgba(0, 214, 143, 0.1)' : isApproved ? 'rgba(0, 229, 204, 0.1)' : isSubmitted ? 'rgba(255, 170, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+          border: `1px solid ${isReleased ? 'var(--success)' : isApproved ? 'var(--accent)' : isSubmitted ? 'var(--warning)' : 'rgba(255, 255, 255, 0.1)'}`,
           borderRadius: '50px',
           padding: '0.5rem 1rem',
           fontSize: '0.875rem',
           fontWeight: 600,
-          color: isReleased ? 'var(--success)' : isPending ? 'var(--warning)' : 'var(--text-muted)'
+          color: isReleased ? 'var(--success)' : isApproved ? 'var(--accent)' : isSubmitted ? 'var(--warning)' : 'var(--text-muted)'
         }}>
-          {isReleased ? '✅ Released' : isPending ? '⏳ Pending' : 'Locked'}
+          {isReleased ? '✅ Released' : isApproved ? '👍 Approved' : isSubmitted ? '📝 Submitted' : '⏳ Pending'}
         </div>
       </div>
 
@@ -472,15 +555,6 @@ function MilestoneCard({ milestone, index, isFreelancer, isClient, onRelease, re
           <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
             {deadline.toLocaleDateString()}
           </div>
-          {isPending && (
-            <div style={{
-              fontSize: '0.85rem',
-              color: isPastDeadline ? 'var(--success)' : 'var(--warning)',
-              marginTop: '0.25rem'
-            }}>
-              {isPastDeadline ? '✓ Can be released' : '⏰ Not yet due'}
-            </div>
-          )}
         </div>
 
         {milestone.escrow && (
@@ -495,6 +569,189 @@ function MilestoneCard({ milestone, index, isFreelancer, isClient, onRelease, re
         )}
       </div>
 
+      {/* Submitted Work Display */}
+      {milestone.submission && (
+        <div style={{
+          padding: '1.5rem',
+          background: 'rgba(255, 170, 0, 0.05)',
+          borderRadius: '12px',
+          marginBottom: '1.5rem',
+          border: '1px solid rgba(255, 170, 0, 0.2)'
+        }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <strong style={{ color: 'var(--warning)' }}>📝 Work Submission</strong>
+          </div>
+          <div style={{ fontSize: '0.95rem', marginBottom: '0.75rem' }}>
+            <strong>Description:</strong>
+            <p style={{ marginTop: '0.5rem', color: 'var(--text-muted)' }}>
+              {milestone.submission.description}
+            </p>
+          </div>
+          {milestone.submission.fileUrl && (
+            <div style={{ fontSize: '0.95rem' }}>
+              <strong>File:</strong>
+              <a 
+                href={milestone.submission.fileUrl} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                style={{ 
+                  color: 'var(--accent)', 
+                  marginLeft: '0.5rem',
+                  textDecoration: 'underline'
+                }}
+              >
+                View Submitted Work →
+              </a>
+            </div>
+          )}
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.75rem' }}>
+            Submitted: {new Date(milestone.submission.submittedAt).toLocaleString()}
+          </div>
+        </div>
+      )}
+
+      {/* Freelancer: Submit Work Form */}
+      {isFreelancer && isPending && !showSubmitForm && (
+        <button
+          onClick={() => setShowSubmitForm(true)}
+          className="btn btn-primary"
+          style={{ width: '100%', marginBottom: '1rem' }}
+        >
+          📤 Submit Work
+        </button>
+      )}
+
+      {isFreelancer && isPending && showSubmitForm && (
+        <div style={{
+          padding: '1.5rem',
+          background: 'rgba(0, 229, 204, 0.05)',
+          borderRadius: '12px',
+          border: '1px solid rgba(0, 229, 204, 0.2)',
+          marginBottom: '1rem'
+        }}>
+          <h4 style={{ marginBottom: '1rem', color: 'var(--accent)' }}>Submit Your Work</h4>
+          
+          <div style={{ marginBottom: '1rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600 }}>
+              Description *
+            </label>
+            <textarea
+              value={submissionData.description}
+              onChange={(e) => setSubmissionData({ ...submissionData, description: e.target.value })}
+              placeholder="Describe what you've completed for this milestone..."
+              rows={4}
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                color: 'var(--text)',
+                fontSize: '0.95rem',
+                fontFamily: 'inherit',
+                resize: 'vertical'
+              }}
+            />
+          </div>
+
+          <div style={{ marginBottom: '1.5rem' }}>
+            <label style={{ display: 'block', marginBottom: '0.5rem', fontSize: '0.9rem', fontWeight: 600 }}>
+              File URL (Optional)
+            </label>
+            <input
+              type="url"
+              value={submissionData.fileUrl}
+              onChange={(e) => setSubmissionData({ ...submissionData, fileUrl: e.target.value })}
+              placeholder="https://drive.google.com/... or https://github.com/..."
+              style={{
+                width: '100%',
+                padding: '0.75rem',
+                background: 'rgba(255, 255, 255, 0.05)',
+                border: '1px solid rgba(255, 255, 255, 0.1)',
+                borderRadius: '8px',
+                color: 'var(--text)',
+                fontSize: '0.95rem',
+                fontFamily: 'monospace'
+              }}
+            />
+            <small style={{ color: 'var(--text-muted)', fontSize: '0.85rem', marginTop: '0.5rem', display: 'block' }}>
+              Link to your deliverables (Google Drive, GitHub, Figma, etc.)
+            </small>
+          </div>
+
+          <div style={{ display: 'flex', gap: '1rem' }}>
+            <button
+              onClick={handleSubmit}
+              className="btn btn-primary"
+              style={{ flex: 1 }}
+            >
+              ✅ Submit Work
+            </button>
+            <button
+              onClick={() => {
+                setShowSubmitForm(false);
+                setSubmissionData({ description: '', fileUrl: '' });
+              }}
+              className="btn btn-secondary"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Client: Approve Work Button */}
+      {isClient && isSubmitted && (
+        <div style={{
+          padding: '1.5rem',
+          background: 'rgba(0, 229, 204, 0.05)',
+          borderRadius: '12px',
+          border: '1px solid rgba(0, 229, 204, 0.2)',
+          marginBottom: '1rem'
+        }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <strong style={{ color: 'var(--accent)' }}>Review Required</strong>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+              The freelancer has submitted their work. Please review and approve to allow payment release.
+            </p>
+          </div>
+          <button
+            onClick={onApproveWork}
+            disabled={approving}
+            className="btn btn-primary"
+            style={{ width: '100%' }}
+          >
+            {approving ? '⏳ Approving...' : '✅ Approve Work'}
+          </button>
+        </div>
+      )}
+
+      {/* Freelancer: Release Payment Button */}
+      {isFreelancer && isApproved && (
+        <div style={{
+          padding: '1.5rem',
+          background: 'rgba(0, 229, 204, 0.05)',
+          borderRadius: '8px',
+          border: '1px solid rgba(0, 229, 204, 0.2)'
+        }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <strong style={{ color: 'var(--accent)' }}>Ready to Release</strong>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+              The client has approved your work. You can now claim this milestone payment.
+            </p>
+          </div>
+          <button
+            onClick={onRelease}
+            disabled={releasing}
+            className="btn btn-primary"
+            style={{ width: '100%' }}
+          >
+            {releasing ? '⏳ Releasing...' : '💰 Release Payment'}
+          </button>
+        </div>
+      )}
+
+      {/* Released Status */}
       {isReleased && milestone.releasedAt && (
         <div style={{
           padding: '1rem',
@@ -523,31 +780,8 @@ function MilestoneCard({ milestone, index, isFreelancer, isClient, onRelease, re
         </div>
       )}
 
-      {canRelease && (
-        <div style={{
-          padding: '1.5rem',
-          background: 'rgba(0, 229, 204, 0.05)',
-          borderRadius: '8px',
-          border: '1px solid rgba(0, 229, 204, 0.2)'
-        }}>
-          <div style={{ marginBottom: '1rem' }}>
-            <strong style={{ color: 'var(--accent)' }}>Ready to Release</strong>
-            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-              The deadline has passed. You can now claim this milestone payment.
-            </p>
-          </div>
-          <button
-            onClick={onRelease}
-            disabled={releasing}
-            className="btn btn-primary"
-            style={{ width: '100%' }}
-          >
-            {releasing ? '⏳ Releasing...' : '💰 Release Payment'}
-          </button>
-        </div>
-      )}
-
-      {isClient && isPending && !isPastDeadline && (
+      {/* Client Info Messages */}
+      {isClient && isPending && (
         <div style={{
           padding: '1rem',
           background: 'rgba(255, 170, 0, 0.05)',
@@ -556,7 +790,20 @@ function MilestoneCard({ milestone, index, isFreelancer, isClient, onRelease, re
           fontSize: '0.9rem',
           color: 'var(--text-muted)'
         }}>
-          ℹ️ Funds are locked in escrow. Freelancer can release after {deadline.toLocaleDateString()}.
+          ℹ️ Waiting for freelancer to submit work. Funds are locked in escrow.
+        </div>
+      )}
+
+      {isClient && isApproved && (
+        <div style={{
+          padding: '1rem',
+          background: 'rgba(0, 229, 204, 0.05)',
+          borderRadius: '8px',
+          border: '1px solid rgba(0, 229, 204, 0.2)',
+          fontSize: '0.9rem',
+          color: 'var(--text-muted)'
+        }}>
+          ℹ️ Work approved. Waiting for freelancer to release payment from escrow.
         </div>
       )}
     </div>

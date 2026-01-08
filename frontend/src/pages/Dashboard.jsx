@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
+import { useWallet } from '../App';
 
 const API_URL = 'http://localhost:3001/api';
 
@@ -8,6 +9,7 @@ const API_URL = 'http://localhost:3001/api';
  * View all projects and escrows
  */
 function Dashboard() {
+  const { wallet } = useWallet();
   const [projects, setProjects] = useState([]);
   const [loading, setLoading] = useState(true);
 
@@ -18,7 +20,14 @@ function Dashboard() {
   const loadProjects = async () => {
     try {
       const response = await axios.get(`${API_URL}/projects`);
-      setProjects(response.data.projects || []);
+      const allProjects = response.data.projects || [];
+    
+      // Filter: show accepted projects, or projects where user is client
+      const filteredProjects = allProjects.filter(p => 
+        p.status === 'accepted' || p.clientAddress === wallet?.address
+      );
+    
+      setProjects(filteredProjects);
     } catch (error) {
       console.error('Error loading projects:', error);
     } finally {

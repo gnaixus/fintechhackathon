@@ -1,3 +1,4 @@
+import axios from 'axios';
 import React, { useState, useEffect, createContext, useContext } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import Navigation from './components/Navigation';
@@ -6,8 +7,11 @@ import Home from './pages/Home';
 import Dashboard from './pages/Dashboard';
 import CreateProject from './pages/CreateProject';
 import ProjectDetails from './pages/ProjectDetails';
+import Offers from './pages/Offers';
 import './styles/App.css';
 
+// In Routes:
+<Route path="/offers" element={<Offers />} />
 /**
  * Wallet Context for global wallet state
  */
@@ -55,6 +59,21 @@ function App() {
     localStorage.removeItem('wallet');
   };
 
+  // Refresh wallet balance
+  const refreshBalance = async () => {
+    if (!wallet) return;
+  
+    try {
+      const response = await axios.get(`http://localhost:3001/api/wallet/${wallet.address}/balance`);
+      const newBalance = response.data.balance;
+      const updatedWallet = { ...wallet, balance: newBalance };
+      setWallet(updatedWallet);
+      localStorage.setItem('wallet', JSON.stringify(updatedWallet));
+    } catch (error) {
+      console.error('Error refreshing balance:', error);
+    }
+  };
+
   // Show loading state
   if (loading) {
     return (
@@ -88,7 +107,7 @@ function App() {
 
   // Show main app when wallet is connected
   return (
-    <WalletContext.Provider value={{ wallet, disconnect: handleDisconnect }}>
+    <WalletContext.Provider value={{ wallet, disconnect: handleDisconnect, refreshBalance }}>
       <Router>
         <div className="app">
           <Navigation />
@@ -97,6 +116,7 @@ function App() {
             <Route path="/" element={<Home />} />
             <Route path="/dashboard" element={<Dashboard />} />
             <Route path="/create-project" element={<CreateProject />} />
+            <Route path="/offers" element={<Offers />} />
             <Route path="/project/:projectId" element={<ProjectDetails />} />
             <Route path="*" element={<Navigate to="/" replace />} />
           </Routes>

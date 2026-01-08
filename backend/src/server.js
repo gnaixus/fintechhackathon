@@ -109,10 +109,12 @@ app.post('/api/projects/create', async (req, res) => {
       description,
       clientAddress: clientWallet.address,
       freelancerAddress,
+      status: 'pending', // pending, accepted, completed
       milestones: milestones.map((m, idx) => ({
         ...m,
         escrow: escrows[idx],
-        status: 'pending'
+        status: 'pending', // pending, submitted, approved, released
+        submission: null // Will store { description, fileUrl, submittedAt }
       })),
       createdAt: new Date().toISOString()
     };
@@ -210,10 +212,10 @@ app.post('/api/milestones/approve', async (req, res) => {
       });
     }
 
-    if (milestone.status !== 'pending') {
+    if (milestone.status !== 'approved') {
       return res.status(400).json({ 
         success: false, 
-        error: 'Milestone already processed' 
+        error: 'Work must be approved by client first' 
       });
     }
 
@@ -229,6 +231,12 @@ app.post('/api/milestones/approve', async (req, res) => {
     milestone.releasedAt = new Date().toISOString();
     milestone.releaseHash = result.hash;
 
+    if (milestone.status !== 'approved') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Work must be approved by client first' 
+      });
+    }
     res.json({ 
       success: true, 
       message: 'Milestone approved and funds released',
@@ -269,6 +277,169 @@ app.get('/api/reputation/:address', async (req, res) => {
  * Get all projects (for demo)
  * GET /api/projects
  */
+
+/**
+ * Get pending offers for a freelancer
+ * GET /api/projects/offers/:freelancerAddress
+ */
+app.get('/api/projects/offers/:freelancerAddress', (req, res) => {
+  try {
+    const { freelancerAddress } = req.params;
+    
+    // Find all projects where this address is the freelancer and status is 'pending'
+    const allProjects = Array.from(projects.values());
+    const offers = allProjects.filter(p => 
+      p.freelancerAddress === freelancerAddress && 
+      p.status === 'pending'
+    );
+
+    res.json({ success: true, offers });
+  } catch (error) {
+    console.error('Error getting offers:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Accept a project offer
+ * POST /api/projects/:projectId/accept
+ */
+app.post('/api/projects/:projectId/accept', (req, res) => {
+  try {
+    const { projectId} = req.params;
+    const { freelancerAddress } = req.body;
+
+    const project = projects.get(projectId);
+    
+    if (!project) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Project not found' 
+      });
+    }
+
+    if (project.freelancerAddress !== freelancerAddress) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Not authorized' 
+      });
+    }
+
+    // Update project status
+    project.status = 'accepted';
+    project.acceptedAt = new Date().toISOString();
+    projects.set(projectId, project);
+
+    res.json({ 
+      success: true, 
+      message: 'Project accepted',
+      project 
+    });
+  } catch (error) {
+    console.error('Error accepting project:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Submit work for a milestone
+ * POST /api/milestones/submit
+ */
+app.post('/api/milestones/submit', (req, res) => {
+  try {
+    const { projectId, milestoneIndex, submission } = req.body;
+    
+    const project = projects.get(projectId);
+    if (!project) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Project not found' 
+      });
+    }
+
+    const milestone = project.milestones[milestoneIndex];
+    if (!milestone) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Milestone not found' 
+      });
+    }
+
+    // Update milestone with submission
+    milestone.status = 'submitted';
+    milestone.submission = {
+      ...submission,
+      submittedAt: new Date().toISOString()
+    };
+    
+    projects.set(projectId, project);
+
+    res.json({ 
+      success: true, 
+      message: 'Work submitted successfully',
+      milestone 
+    });
+  } catch (error) {
+    console.error('Error submitting work:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
+/**
+ * Approve milestone submission (client only)
+ * POST /api/milestones/approve-work
+ */
+app.post('/api/milestones/approve-work', (req, res) => {
+  try {
+    const { projectId, milestoneIndex, clientAddress } = req.body;
+    
+    const project = projects.get(projectId);
+    if (!project) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Project not found' 
+      });
+    }
+
+    if (project.clientAddress !== clientAddress) {
+      return res.status(403).json({ 
+        success: false, 
+        error: 'Only client can approve work' 
+      });
+    }
+
+    const milestone = project.milestones[milestoneIndex];
+    if (!milestone) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'Milestone not found' 
+      });
+    }
+
+    if (milestone.status !== 'submitted') {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Milestone has not been submitted' 
+      });
+    }
+
+    // Approve the work
+    milestone.status = 'approved';
+    milestone.approvedAt = new Date().toISOString();
+    
+    projects.set(projectId, project);
+
+    res.json({ 
+      success: true, 
+      message: 'Work approved! Freelancer can now release payment.',
+      milestone 
+    });
+  } catch (error) {
+    console.error('Error approving work:', error);
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 app.get('/api/projects', (req, res) => {
   const allProjects = Array.from(projects.values());
   res.json({ success: true, projects: allProjects });

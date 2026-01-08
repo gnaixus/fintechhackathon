@@ -9,10 +9,11 @@ const API_URL = 'http://localhost:3001/api';
  * Form to create new escrow project with milestones using connected wallet
  */
 function CreateProject() {
-  const { wallet } = useWallet();
+  const { Wallet } = useWallet();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
+  const { wallet, refreshBalance } = useWallet();
   
   // Form data
   const [formData, setFormData] = useState({
@@ -69,7 +70,12 @@ function CreateProject() {
 
       console.log('Project created:', response.data);
       setSuccess(true);
-      
+
+      // Refresh balance
+      if (refreshBalance) {
+        await refreshBalance();
+      }
+
       // Reset form after 2 seconds
       setTimeout(() => {
         window.location.href = '/dashboard';

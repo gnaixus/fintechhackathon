@@ -30,6 +30,19 @@ function Navigation() {
         
         <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
           <Link 
+            to="/offers" 
+            style={{
+              color: 'var(--text-muted)',
+              textDecoration: 'none',
+              fontWeight: 500,
+              transition: 'color 0.3s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.color = 'var(--accent)'}
+            onMouseLeave={(e) => e.target.style.color = 'var(--text-muted)'}
+          >
+            Offers
+          </Link>
+          <Link 
             to="/dashboard" 
             style={{
               color: 'var(--text-muted)',
