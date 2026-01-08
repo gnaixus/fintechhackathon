@@ -87,3 +87,29 @@ The global freelance economy is worth **$1.5 trillion**, yet freelancers and cli
 ```bash
 git clone https://github.com/gnaixus/fintechhackathon.git
 cd fintechhackathon
+```
+### Start Backend
+```bash
+cd backend
+npm install
+npm run dev
+```
+### Backend runs on:
+http://localhost:3001
+
+### Start Frontend
+```bash
+cd frontend
+npm install
+npm run dev
+```
+### Frontend runs on:
+http://localhost:5173
+
+### Tech Stack
+Frontend: React.js, React Router
+Backend: Node.js, Express
+Blockchain: XRP Ledger (XRPL Testnet)
+SDK: xrpl.js
+
+
