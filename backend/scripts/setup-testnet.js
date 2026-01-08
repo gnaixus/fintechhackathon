@@ -1,15 +1,9 @@
 import xrplClient from '../src/xrpl-client.js';
 
-/**
- * Setup script for testnet demo
- * Creates client and freelancer wallets with funded accounts
- */
-
 async function setupTestnet() {
   console.log('🚀 Setting up testnet wallets...\n');
 
   try {
-    // Create client wallet
     console.log('Creating CLIENT wallet...');
     const clientWallet = await xrplClient.createWallet();
     console.log('✅ Client Wallet Created:');
@@ -17,7 +11,6 @@ async function setupTestnet() {
     console.log('   Seed:', clientWallet.seed);
     console.log('   Balance: 1000 XRP (testnet)\n');
 
-    // Create freelancer wallet
     console.log('Creating FREELANCER wallet...');
     const freelancerWallet = await xrplClient.createWallet();
     console.log('✅ Freelancer Wallet Created:');
@@ -25,7 +18,6 @@ async function setupTestnet() {
     console.log('   Seed:', freelancerWallet.seed);
     console.log('   Balance: 1000 XRP (testnet)\n');
 
-    // Create .env file
     const envContent = `# XRPL Configuration
 XRPL_NETWORK=wss://s.altnet.rippletest.net:51233
 PORT=3001
@@ -38,7 +30,6 @@ FREELANCER_ADDRESS=${freelancerWallet.address}
 FREELANCER_SEED=${freelancerWallet.seed}
 `;
 
-    // Write to .env file
     await import('fs/promises').then(fs => 
       fs.writeFile('/home/claude/freelance-escrow-xrpl/backend/.env', envContent)
     );

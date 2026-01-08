@@ -5,10 +5,6 @@ import { useWallet } from '../App';
 
 const API_URL = 'http://localhost:3001/api';
 
-/**
- * Project Details Page
- * View project status, milestones, submit work, approve work, and release payments
- */
 function ProjectDetails() {
   const { projectId } = useParams();
   const navigate = useNavigate();
@@ -20,7 +16,6 @@ function ProjectDetails() {
   const [releasingMilestone, setReleasingMilestone] = useState(null);
   const [approvingMilestone, setApprovingMilestone] = useState(null);
 
-  // Load project details
   useEffect(() => {
     loadProject();
   }, [projectId]);
@@ -38,7 +33,6 @@ function ProjectDetails() {
     }
   };
 
-  // Submit work for a milestone
   const handleSubmitWork = async (milestoneIndex, submission) => {
     setError('');
 
@@ -57,7 +51,6 @@ function ProjectDetails() {
     }
   };
 
-  // Approve work (client only)
   const handleApproveWork = async (milestoneIndex) => {
     if (!window.confirm('Are you sure you want to approve this work? The freelancer will then be able to release the payment.')) {
       return;
@@ -83,7 +76,6 @@ function ProjectDetails() {
     }
   };
 
-  // Release milestone payment (freelancer only, after approval)
   const handleReleaseMilestone = async (milestoneIndex) => {
     if (!window.confirm('Are you sure you want to release this milestone payment?')) {
       return;
@@ -101,15 +93,13 @@ function ProjectDetails() {
 
       console.log('Milestone released:', response.data);
       
-      // Refresh balance after releasing payment
       if (refreshBalance) {
         await refreshBalance();
       }
 
-      // Reload project to show updated status
       await loadProject();
       
-      alert('✅ Milestone payment released successfully! Your balance has been updated.');
+      alert('Milestone payment released successfully! Your balance has been updated.');
     } catch (err) {
       console.error('Error releasing milestone:', err);
       setError(err.response?.data?.error || 'Failed to release milestone');
@@ -118,7 +108,6 @@ function ProjectDetails() {
     }
   };
 
-  // Calculate project statistics
   const calculateStats = () => {
     if (!project) return { total: 0, released: 0, pending: 0, completed: 0, progress: 0 };
 
@@ -381,9 +370,6 @@ function ProjectDetails() {
   );
 }
 
-/**
- * Info Card Component
- */
 function InfoCard({ label, value, sublabel, mono }) {
   return (
     <div style={{
@@ -421,9 +407,6 @@ function InfoCard({ label, value, sublabel, mono }) {
   );
 }
 
-/**
- * Stat Card Component
- */
 function StatCard({ label, value, color }) {
   return (
     <div style={{
@@ -451,9 +434,6 @@ function StatCard({ label, value, color }) {
   );
 }
 
-/**
- * Milestone Card Component
- */
 function MilestoneCard({ 
   milestone, 
   index, 

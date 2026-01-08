@@ -5,10 +5,6 @@ import { useWallet } from '../App';
 
 const API_URL = 'http://localhost:3001/api';
 
-/**
- * Offers Page - DEBUG VERSION
- * Shows all escrow offers/invitations for the freelancer
- */
 function Offers() {
   const navigate = useNavigate();
   const { wallet } = useWallet();
@@ -31,7 +27,6 @@ function Offers() {
       
       console.log('📡 Fetching offers for:', wallet.address);
       
-      // Get all projects where this wallet is the freelancer
       const response = await axios.get(`${API_URL}/projects/offers/${wallet.address}`);
       
       console.log('✅ Response received:', response.data);
@@ -61,7 +56,6 @@ function Offers() {
       
       console.log('✅ Project accepted successfully');
       
-      // Remove from offers list
       setOffers(offers.filter(o => o.id !== projectId));
       
       alert('✅ Project accepted! You can now view it in your dashboard.');
@@ -75,7 +69,6 @@ function Offers() {
     }
   };
 
-  // Debug info display
   console.log('🎨 Rendering Offers page');
   console.log('📊 Current state:', { loading, offersCount: offers.length, error });
 
@@ -197,9 +190,6 @@ function Offers() {
   );
 }
 
-/**
- * Offer Card Component
- */
 function OfferCard({ offer, onAccept, accepting }) {
   const totalAmount = offer.milestones.reduce((sum, m) => sum + parseFloat(m.amount), 0);
 

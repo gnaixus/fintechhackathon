@@ -4,10 +4,7 @@ import { useWallet } from '../App';
 
 const API_URL = 'http://localhost:3001/api';
 
-/**
- * Create Project Page
- * Form to create new escrow project with milestones using connected wallet
- */
+
 function CreateProject() {
   const { Wallet } = useWallet();
   const [loading, setLoading] = useState(false);
@@ -15,7 +12,6 @@ function CreateProject() {
   const [error, setError] = useState('');
   const { wallet, refreshBalance } = useWallet();
   
-  // Form data
   const [formData, setFormData] = useState({
     title: '',
     description: '',
@@ -25,7 +21,6 @@ function CreateProject() {
     ]
   });
 
-  // Add new milestone
   const addMilestone = () => {
     setFormData({
       ...formData,
@@ -33,25 +28,21 @@ function CreateProject() {
     });
   };
 
-  // Remove milestone
   const removeMilestone = (index) => {
     const newMilestones = formData.milestones.filter((_, i) => i !== index);
     setFormData({ ...formData, milestones: newMilestones });
   };
 
-  // Update milestone field
   const updateMilestone = (index, field, value) => {
     const newMilestones = [...formData.milestones];
     newMilestones[index][field] = value;
     setFormData({ ...formData, milestones: newMilestones });
   };
 
-  // Calculate total project cost
   const totalCost = formData.milestones.reduce((sum, m) => {
     return sum + (parseFloat(m.amount) || 0);
   }, 0);
 
-  // Submit form
   const handleSubmit = async (e) => {
     e.preventDefault();
     setLoading(true);
@@ -59,7 +50,6 @@ function CreateProject() {
     setSuccess(false);
 
     try {
-      // Use connected wallet seed
       const response = await axios.post(`${API_URL}/projects/create-with-wallet`, {
         clientSeed: wallet.seed,
         title: formData.title,
@@ -71,12 +61,10 @@ function CreateProject() {
       console.log('Project created:', response.data);
       setSuccess(true);
 
-      // Refresh balance
       if (refreshBalance) {
         await refreshBalance();
       }
 
-      // Reset form after 2 seconds
       setTimeout(() => {
         window.location.href = '/dashboard';
       }, 2000);

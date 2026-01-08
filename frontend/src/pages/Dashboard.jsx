@@ -4,10 +4,6 @@ import { useWallet } from '../App';
 
 const API_URL = 'http://localhost:3001/api';
 
-/**
- * Dashboard Page
- * View all projects and escrows
- */
 function Dashboard() {
   const { wallet } = useWallet();
   const [projects, setProjects] = useState([]);
@@ -77,9 +73,7 @@ function Dashboard() {
   );
 }
 
-/**
- * Project Card Component
- */
+
 function ProjectCard({ project }) {
   const totalAmount = project.milestones.reduce((sum, m) => sum + parseFloat(m.amount), 0);
   const completedMilestones = project.milestones.filter(m => m.status === 'released').length;

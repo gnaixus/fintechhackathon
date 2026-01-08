@@ -2,10 +2,6 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { useWallet } from '../App';
 
-/**
- * Home Page Component
- * Landing page for Frescrow - Freelance Escrow Platform
- */
 function Home() {
   const { wallet } = useWallet();
 
@@ -174,9 +170,6 @@ function Home() {
   );
 }
 
-/**
- * Feature Card Component - Simplified
- */
 function FeatureCard({ title, description }) {
   return (
     <div style={{
@@ -215,10 +208,6 @@ function FeatureCard({ title, description }) {
   );
 }
 
-/**
- * Escrow Visualization Component
- * Visual representation of escrow flow
- */
 function EscrowVisualization() {
   return (
     <div style={{
@@ -249,9 +238,6 @@ function EscrowVisualization() {
   );
 }
 
-/**
- * Escrow Flow Diagram
- */
 function EscrowFlow() {
   const steps = [
     { label: 'Client', emoji: '👤', color: '#FF6B9D' },

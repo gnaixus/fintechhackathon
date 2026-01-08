@@ -10,11 +10,8 @@ import ProjectDetails from './pages/ProjectDetails';
 import Offers from './pages/Offers';
 import './styles/App.css';
 
-// In Routes:
-<Route path="/offers" element={<Offers />} />
-/**
- * Wallet Context for global wallet state
- */
+
+
 const WalletContext = createContext(null);
 
 export const useWallet = () => {
@@ -25,15 +22,10 @@ export const useWallet = () => {
   return context;
 };
 
-/**
- * Main App Component
- * Manages wallet connection state and routing
- */
 function App() {
   const [wallet, setWallet] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  // Check for existing wallet session on mount
   useEffect(() => {
     const savedWallet = localStorage.getItem('wallet');
     if (savedWallet) {
@@ -47,19 +39,16 @@ function App() {
     setLoading(false);
   }, []);
 
-  // Handle wallet connection
   const handleConnect = (walletData) => {
     setWallet(walletData);
     localStorage.setItem('wallet', JSON.stringify(walletData));
   };
 
-  // Handle wallet disconnection
   const handleDisconnect = () => {
     setWallet(null);
     localStorage.removeItem('wallet');
   };
 
-  // Refresh wallet balance
   const refreshBalance = async () => {
     if (!wallet) return;
   
@@ -74,7 +63,6 @@ function App() {
     }
   };
 
-  // Show loading state
   if (loading) {
     return (
       <div style={{
@@ -100,12 +88,10 @@ function App() {
     );
   }
 
-  // Show wallet connection if not connected
   if (!wallet) {
     return <WalletConnect onConnect={handleConnect} />;
   }
 
-  // Show main app when wallet is connected
   return (
     <WalletContext.Provider value={{ wallet, disconnect: handleDisconnect, refreshBalance }}>
       <Router>
@@ -128,9 +114,6 @@ function App() {
   );
 }
 
-/**
- * Footer Component
- */
 function Footer() {
   return (
     <footer style={{
