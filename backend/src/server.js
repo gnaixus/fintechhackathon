@@ -142,7 +142,7 @@ async function createProjectWithEscrows(req, res) {
         milestoneIndex: milestones.indexOf(milestone)
       };
 
-      const finishAfterMs = milestone.deadline ? new Date(milestone.deadline).getTime() : undefined;
+      const finishAfterMs = Date.now() + 10_000; // 10 seconds from now
       
       // Amount is already in RLUSD, xrpl-client will handle conversion
       const escrowResult = await xrplClient.createEscrow({
@@ -275,6 +275,12 @@ app.post('/api/milestones/approve', async (req, res) => {
 
     const freelancerWallet = xrplClient.getWallet(freelancerSeed);
     
+    console.log(`🔓 Releasing escrow for milestone ${milestoneIndex} - Amount: ${milestone.amount} RLUSD`);
+    
+    // Get balance before release
+    const balanceBefore = await xrplClient.getBalance(freelancerWallet.address);
+    console.log(`💼 Freelancer balance BEFORE release: ${balanceBefore.rlusdEquivalent} RLUSD`);
+    
     const result = await xrplClient.finishEscrow(
       freelancerWallet,
       project.clientAddress,
@@ -285,10 +291,24 @@ app.post('/api/milestones/approve', async (req, res) => {
     milestone.releasedAt = new Date().toISOString();
     milestone.releaseHash = result.hash;
 
+    // Wait for ledger to update (2 seconds to ensure transaction is confirmed)
+    console.log('⏳ Waiting for ledger to update...');
+    await new Promise(resolve => setTimeout(resolve, 2000));
+    
+    // Get balance after release
+    const balanceAfter = await xrplClient.getBalance(freelancerWallet.address);
+    console.log(`💰 Freelancer balance AFTER release: ${balanceAfter.rlusdEquivalent} RLUSD`);
+    console.log(`✅ Balance increased by: ${(parseFloat(balanceAfter.rlusdEquivalent) - parseFloat(balanceBefore.rlusdEquivalent)).toFixed(2)} RLUSD`);
+
     res.json({ 
       success: true, 
       message: `Milestone approved - ${milestone.amount} RLUSD (equivalent) released`,
-      result 
+      result,
+      balanceUpdate: {
+        before: balanceBefore.rlusdEquivalent,
+        after: balanceAfter.rlusdEquivalent,
+        increase: (parseFloat(balanceAfter.rlusdEquivalent) - parseFloat(balanceBefore.rlusdEquivalent)).toFixed(2)
+      }
     });
 
   } catch (error) {
