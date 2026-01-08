@@ -107,9 +107,13 @@ function ProjectCard({ project }) {
           </div>
         </div>
         
-        <button className="btn btn-secondary" style={{ padding: '0.5rem 1rem', fontSize: '0.875rem' }}>
-          View Details
-        </button>
+        <a 
+          href={`/project/${project.id}`}
+          className="btn btn-secondary" 
+          style={{ padding: '0.5rem 1rem', fontSize: '0.875rem', textDecoration: 'none' }}
+        >
+          View Details →
+        </a>
       </div>
     </div>
   );

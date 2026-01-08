@@ -1,13 +1,15 @@
 import React, { useState } from 'react';
 import axios from 'axios';
+import { useWallet } from '../App';
 
 const API_URL = 'http://localhost:3001/api';
 
 /**
  * Create Project Page
- * Form to create new escrow project with milestones
+ * Form to create new escrow project with milestones using connected wallet
  */
 function CreateProject() {
+  const { wallet } = useWallet();
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
@@ -56,9 +58,9 @@ function CreateProject() {
     setSuccess(false);
 
     try {
-      // For demo: Use client wallet from backend .env
-      // In production: Would get from WalletContext
-      const response = await axios.post(`${API_URL}/projects/create-demo`, {
+      // Use connected wallet seed
+      const response = await axios.post(`${API_URL}/projects/create-with-wallet`, {
+        clientSeed: wallet.seed,
         title: formData.title,
         description: formData.description,
         freelancerAddress: formData.freelancerAddress,
@@ -90,9 +92,43 @@ function CreateProject() {
         </div>
         
         <h1 style={{ marginBottom: '1rem' }}>Create Project</h1>
-        <p style={{ marginBottom: '3rem', fontSize: '1.125rem' }}>
+        <p style={{ marginBottom: '1rem', fontSize: '1.125rem' }}>
           Set up a new project with milestone-based escrow payments on XRPL
         </p>
+
+        {/* Wallet Info */}
+        <div style={{
+          background: 'rgba(0, 229, 204, 0.1)',
+          border: '1px solid rgba(0, 229, 204, 0.3)',
+          borderRadius: '12px',
+          padding: '1rem',
+          marginBottom: '3rem',
+          display: 'flex',
+          justifyContent: 'space-between',
+          alignItems: 'center'
+        }}>
+          <div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+              Creating project from wallet:
+            </div>
+            <div style={{ 
+              fontFamily: 'monospace', 
+              fontSize: '0.95rem', 
+              fontWeight: 600,
+              color: 'var(--accent)'
+            }}>
+              {wallet.address}
+            </div>
+          </div>
+          <div style={{ textAlign: 'right' }}>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+              Available Balance:
+            </div>
+            <div style={{ fontSize: '1.5rem', fontWeight: 700, color: 'var(--accent)' }}>
+              {wallet.balance} XRP
+            </div>
+          </div>
+        </div>
 
         {/* Success Message */}
         {success && (
@@ -194,7 +230,7 @@ function CreateProject() {
               required
               value={formData.freelancerAddress}
               onChange={(e) => setFormData({ ...formData, freelancerAddress: e.target.value })}
-              placeholder="r..."
+              placeholder="rXXXXXXXXXXXXXXXXXXXXXXXXXXXXX"
               style={{
                 width: '100%',
                 padding: '1rem',
@@ -207,7 +243,7 @@ function CreateProject() {
               }}
             />
             <small style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem', display: 'block' }}>
-              Demo freelancer address from .env: r33qyK5ge2oXuAFD4h6MZ3hdpTxiGe5wMP
+              Enter the freelancer's XRPL wallet address
             </small>
           </div>
 
@@ -362,6 +398,11 @@ function CreateProject() {
                 <div style={{ fontSize: '0.875rem', color: 'var(--text-muted)' }}>
                   {formData.milestones.length} Milestone{formData.milestones.length !== 1 ? 's' : ''}
                 </div>
+                {totalCost > parseFloat(wallet.balance) && (
+                  <div style={{ color: 'var(--error)', fontSize: '0.85rem', marginTop: '0.5rem' }}>
+                    ⚠️ Insufficient balance
+                  </div>
+                )}
               </div>
             </div>
           </div>
@@ -370,7 +411,7 @@ function CreateProject() {
           <div style={{ display: 'flex', gap: '1rem' }}>
             <button
               type="submit"
-              disabled={loading || success}
+              disabled={loading || success || totalCost > parseFloat(wallet.balance)}
               className="btn btn-primary"
               style={{ flex: 1, fontSize: '1.125rem', padding: '1.25rem' }}
             >

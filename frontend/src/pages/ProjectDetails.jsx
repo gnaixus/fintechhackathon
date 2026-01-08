@@ -1,0 +1,566 @@
+import React, { useState, useEffect } from 'react';
+import { useParams, useNavigate } from 'react-router-dom';
+import axios from 'axios';
+import { useWallet } from '../App';
+
+const API_URL = 'http://localhost:3001/api';
+
+/**
+ * Project Details Page
+ * View project status, milestones, and release payments
+ */
+function ProjectDetails() {
+  const { projectId } = useParams();
+  const navigate = useNavigate();
+  const { wallet } = useWallet();
+  
+  const [project, setProject] = useState(null);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
+  const [releasingMilestone, setReleasingMilestone] = useState(null);
+
+  // Load project details
+  useEffect(() => {
+    loadProject();
+  }, [projectId]);
+
+  const loadProject = async () => {
+    try {
+      setLoading(true);
+      const response = await axios.get(`${API_URL}/projects/${projectId}`);
+      setProject(response.data.project);
+    } catch (err) {
+      console.error('Error loading project:', err);
+      setError('Project not found');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Release milestone payment
+  const handleReleaseMilestone = async (milestoneIndex) => {
+    if (!window.confirm('Are you sure you want to release this milestone payment?')) {
+      return;
+    }
+
+    setReleasingMilestone(milestoneIndex);
+    setError('');
+
+    try {
+      const response = await axios.post(`${API_URL}/milestones/approve`, {
+        projectId: project.id,
+        milestoneIndex: milestoneIndex,
+        freelancerSeed: wallet.seed
+      });
+
+      console.log('Milestone released:', response.data);
+      
+      // Reload project to show updated status
+      await loadProject();
+      
+      alert('✅ Milestone payment released successfully!');
+    } catch (err) {
+      console.error('Error releasing milestone:', err);
+      setError(err.response?.data?.error || 'Failed to release milestone');
+    } finally {
+      setReleasingMilestone(null);
+    }
+  };
+
+  // Calculate project statistics
+  const calculateStats = () => {
+    if (!project) return { total: 0, released: 0, pending: 0, completed: 0, progress: 0 };
+
+    const total = project.milestones.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+    const releasedMilestones = project.milestones.filter(m => m.status === 'released');
+    const released = releasedMilestones.reduce((sum, m) => sum + parseFloat(m.amount), 0);
+    const pending = total - released;
+    const completed = releasedMilestones.length;
+    const progress = (completed / project.milestones.length) * 100;
+
+    return { total, released, pending, completed, progress };
+  };
+
+  const stats = calculateStats();
+  const isClient = project && wallet.address === project.clientAddress;
+  const isFreelancer = project && wallet.address === project.freelancerAddress;
+
+  if (loading) {
+    return (
+      <div style={{ paddingTop: '100px', minHeight: '100vh' }}>
+        <div className="container" style={{ textAlign: 'center', padding: '4rem' }}>
+          <div className="loading" style={{ 
+            width: '40px', 
+            height: '40px', 
+            margin: '0 auto',
+            border: '4px solid rgba(0, 229, 204, 0.1)',
+            borderTop: '4px solid var(--accent)',
+            borderRadius: '50%',
+            animation: 'spin 1s linear infinite'
+          }}></div>
+          <p style={{ marginTop: '1rem' }}>Loading project...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error && !project) {
+    return (
+      <div style={{ paddingTop: '100px', minHeight: '100vh' }}>
+        <div className="container" style={{ textAlign: 'center', padding: '4rem' }}>
+          <div style={{ fontSize: '4rem', marginBottom: '1rem' }}>❌</div>
+          <h2>Project Not Found</h2>
+          <p style={{ marginTop: '1rem', color: 'var(--text-muted)' }}>{error}</p>
+          <button 
+            onClick={() => navigate('/dashboard')}
+            className="btn btn-primary"
+            style={{ marginTop: '2rem' }}
+          >
+            Back to Dashboard
+          </button>
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div style={{ paddingTop: '100px', minHeight: '100vh', paddingBottom: '4rem' }}>
+      <div className="container" style={{ maxWidth: '1200px' }}>
+        {/* Header */}
+        <div style={{ marginBottom: '3rem' }}>
+          <button 
+            onClick={() => navigate('/dashboard')}
+            style={{
+              background: 'none',
+              border: 'none',
+              color: 'var(--accent)',
+              cursor: 'pointer',
+              fontSize: '1rem',
+              marginBottom: '1rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.5rem'
+            }}
+          >
+            ← Back to Dashboard
+          </button>
+
+          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start' }}>
+            <div>
+              <h1 style={{ marginBottom: '0.5rem' }}>{project.title}</h1>
+              <p style={{ color: 'var(--text-muted)', fontSize: '1.1rem' }}>
+                {project.description}
+              </p>
+            </div>
+            
+            <div style={{
+              background: stats.progress === 100 ? 'rgba(0, 214, 143, 0.1)' : 'rgba(0, 229, 204, 0.1)',
+              border: `1px solid ${stats.progress === 100 ? 'var(--success)' : 'var(--accent)'}`,
+              borderRadius: '50px',
+              padding: '0.5rem 1.25rem',
+              fontSize: '0.875rem',
+              fontWeight: 600,
+              color: stats.progress === 100 ? 'var(--success)' : 'var(--accent)'
+            }}>
+              {stats.progress === 100 ? '✅ Completed' : `⏳ ${Math.round(stats.progress)}% Complete`}
+            </div>
+          </div>
+        </div>
+
+        {/* Error Message */}
+        {error && (
+          <div style={{
+            background: 'rgba(255, 71, 87, 0.1)',
+            border: '1px solid rgba(255, 71, 87, 0.3)',
+            borderRadius: '12px',
+            padding: '1rem',
+            marginBottom: '2rem',
+            color: '#FF4757'
+          }}>
+            <strong>⚠️ Error:</strong> {error}
+          </div>
+        )}
+
+        {/* Project Info */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(250px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '3rem'
+        }}>
+          <InfoCard 
+            label="Client"
+            value={project.clientAddress.slice(0, 8) + '...' + project.clientAddress.slice(-6)}
+            sublabel={isClient ? '(You)' : ''}
+            mono
+          />
+          <InfoCard 
+            label="Freelancer"
+            value={project.freelancerAddress.slice(0, 8) + '...' + project.freelancerAddress.slice(-6)}
+            sublabel={isFreelancer ? '(You)' : ''}
+            mono
+          />
+          <InfoCard 
+            label="Created"
+            value={new Date(project.createdAt).toLocaleDateString()}
+          />
+          <InfoCard 
+            label="Project ID"
+            value={project.id}
+            mono
+          />
+        </div>
+
+        {/* Stats Cards */}
+        <div style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+          gap: '1.5rem',
+          marginBottom: '3rem'
+        }}>
+          <StatCard 
+            label="Total Value"
+            value={`${stats.total.toFixed(2)} XRP`}
+            color="var(--accent)"
+          />
+          <StatCard 
+            label="Released"
+            value={`${stats.released.toFixed(2)} XRP`}
+            color="var(--success)"
+          />
+          <StatCard 
+            label="Pending"
+            value={`${stats.pending.toFixed(2)} XRP`}
+            color="var(--warning)"
+          />
+          <StatCard 
+            label="Milestones"
+            value={`${stats.completed}/${project.milestones.length}`}
+            color="var(--accent)"
+          />
+        </div>
+
+        {/* Progress Bar */}
+        <div style={{ marginBottom: '3rem' }}>
+          <div style={{
+            display: 'flex',
+            justifyContent: 'space-between',
+            marginBottom: '0.5rem',
+            fontSize: '0.9rem',
+            color: 'var(--text-muted)'
+          }}>
+            <span>Overall Progress</span>
+            <span>{Math.round(stats.progress)}%</span>
+          </div>
+          <div style={{
+            width: '100%',
+            height: '12px',
+            background: 'rgba(255, 255, 255, 0.05)',
+            borderRadius: '50px',
+            overflow: 'hidden'
+          }}>
+            <div style={{
+              width: `${stats.progress}%`,
+              height: '100%',
+              background: `linear-gradient(90deg, var(--accent), var(--success))`,
+              borderRadius: '50px',
+              transition: 'width 0.5s ease'
+            }}></div>
+          </div>
+        </div>
+
+        {/* Milestones */}
+        <div>
+          <h2 style={{ marginBottom: '1.5rem' }}>Milestones</h2>
+          
+          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+            {project.milestones.map((milestone, index) => (
+              <MilestoneCard
+                key={index}
+                milestone={milestone}
+                index={index}
+                isFreelancer={isFreelancer}
+                isClient={isClient}
+                onRelease={() => handleReleaseMilestone(index)}
+                releasing={releasingMilestone === index}
+              />
+            ))}
+          </div>
+        </div>
+
+        {/* Action Buttons */}
+        <div style={{
+          marginTop: '3rem',
+          padding: '2rem',
+          background: 'rgba(26, 31, 58, 0.6)',
+          borderRadius: '16px',
+          border: '1px solid rgba(255, 255, 255, 0.1)'
+        }}>
+          <h3 style={{ marginBottom: '1rem' }}>Quick Actions</h3>
+          <div style={{ display: 'flex', gap: '1rem', flexWrap: 'wrap' }}>
+            <a
+              href={`https://testnet.xrpl.org/accounts/${project.clientAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary"
+            >
+              🔍 View Client on Explorer
+            </a>
+            <a
+              href={`https://testnet.xrpl.org/accounts/${project.freelancerAddress}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="btn btn-secondary"
+            >
+              🔍 View Freelancer on Explorer
+            </a>
+            <button
+              onClick={loadProject}
+              className="btn btn-secondary"
+            >
+              🔄 Refresh Status
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Info Card Component
+ */
+function InfoCard({ label, value, sublabel, mono }) {
+  return (
+    <div style={{
+      padding: '1.5rem',
+      background: 'rgba(26, 31, 58, 0.6)',
+      borderRadius: '12px',
+      border: '1px solid rgba(255, 255, 255, 0.1)'
+    }}>
+      <div style={{
+        fontSize: '0.85rem',
+        color: 'var(--text-muted)',
+        marginBottom: '0.5rem'
+      }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: '1.1rem',
+        fontWeight: 600,
+        color: 'var(--text)',
+        fontFamily: mono ? 'monospace' : 'inherit',
+        wordBreak: 'break-all'
+      }}>
+        {value}
+      </div>
+      {sublabel && (
+        <div style={{
+          fontSize: '0.85rem',
+          color: 'var(--accent)',
+          marginTop: '0.25rem'
+        }}>
+          {sublabel}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Stat Card Component
+ */
+function StatCard({ label, value, color }) {
+  return (
+    <div style={{
+      padding: '1.5rem',
+      background: 'rgba(26, 31, 58, 0.6)',
+      borderRadius: '12px',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      textAlign: 'center'
+    }}>
+      <div style={{
+        fontSize: '0.85rem',
+        color: 'var(--text-muted)',
+        marginBottom: '0.5rem'
+      }}>
+        {label}
+      </div>
+      <div style={{
+        fontSize: '2rem',
+        fontWeight: 700,
+        color: color
+      }}>
+        {value}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * Milestone Card Component
+ */
+function MilestoneCard({ milestone, index, isFreelancer, isClient, onRelease, releasing }) {
+  const isPending = milestone.status === 'pending';
+  const isReleased = milestone.status === 'released';
+  const deadline = new Date(milestone.deadline);
+  const isPastDeadline = new Date() > deadline;
+  const canRelease = isFreelancer && isPending && isPastDeadline;
+
+  return (
+    <div style={{
+      padding: '2rem',
+      background: 'rgba(26, 31, 58, 0.6)',
+      borderRadius: '16px',
+      border: `2px solid ${isReleased ? 'var(--success)' : isPending ? 'rgba(255, 255, 255, 0.1)' : 'rgba(255, 255, 255, 0.05)'}`,
+      opacity: isReleased ? 0.7 : 1,
+      transition: 'all 0.3s ease'
+    }}>
+      <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
+        <div style={{ flex: 1 }}>
+          <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', marginBottom: '0.5rem' }}>
+            <div style={{
+              width: '40px',
+              height: '40px',
+              borderRadius: '50%',
+              background: isReleased ? 'var(--success)' : 'var(--accent)',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              fontSize: '1.25rem',
+              fontWeight: 700,
+              color: 'var(--primary)'
+            }}>
+              {isReleased ? '✓' : index + 1}
+            </div>
+            <h3 style={{ margin: 0, fontSize: '1.5rem' }}>{milestone.name}</h3>
+          </div>
+        </div>
+
+        <div style={{
+          background: isReleased ? 'rgba(0, 214, 143, 0.1)' : isPending ? 'rgba(255, 170, 0, 0.1)' : 'rgba(255, 255, 255, 0.05)',
+          border: `1px solid ${isReleased ? 'var(--success)' : isPending ? 'var(--warning)' : 'rgba(255, 255, 255, 0.1)'}`,
+          borderRadius: '50px',
+          padding: '0.5rem 1rem',
+          fontSize: '0.875rem',
+          fontWeight: 600,
+          color: isReleased ? 'var(--success)' : isPending ? 'var(--warning)' : 'var(--text-muted)'
+        }}>
+          {isReleased ? '✅ Released' : isPending ? '⏳ Pending' : 'Locked'}
+        </div>
+      </div>
+
+      <div style={{
+        display: 'grid',
+        gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
+        gap: '1.5rem',
+        marginBottom: '1.5rem'
+      }}>
+        <div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+            Amount
+          </div>
+          <div style={{ fontSize: '1.75rem', fontWeight: 700, color: 'var(--accent)' }}>
+            {milestone.amount} XRP
+          </div>
+        </div>
+
+        <div>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+            Deadline
+          </div>
+          <div style={{ fontSize: '1.1rem', fontWeight: 600 }}>
+            {deadline.toLocaleDateString()}
+          </div>
+          {isPending && (
+            <div style={{
+              fontSize: '0.85rem',
+              color: isPastDeadline ? 'var(--success)' : 'var(--warning)',
+              marginTop: '0.25rem'
+            }}>
+              {isPastDeadline ? '✓ Can be released' : '⏰ Not yet due'}
+            </div>
+          )}
+        </div>
+
+        {milestone.escrow && (
+          <div>
+            <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.25rem' }}>
+              Escrow Sequence
+            </div>
+            <div style={{ fontSize: '1.1rem', fontWeight: 600, fontFamily: 'monospace' }}>
+              #{milestone.escrow.escrowSequence}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {isReleased && milestone.releasedAt && (
+        <div style={{
+          padding: '1rem',
+          background: 'rgba(0, 214, 143, 0.05)',
+          borderRadius: '8px',
+          marginBottom: '1rem'
+        }}>
+          <div style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginBottom: '0.5rem' }}>
+            Released on {new Date(milestone.releasedAt).toLocaleString()}
+          </div>
+          {milestone.releaseHash && (
+            <a
+              href={`https://testnet.xrpl.org/transactions/${milestone.releaseHash}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              style={{
+                fontSize: '0.85rem',
+                color: 'var(--success)',
+                textDecoration: 'none',
+                fontFamily: 'monospace'
+              }}
+            >
+              🔗 View Transaction: {milestone.releaseHash.slice(0, 16)}...
+            </a>
+          )}
+        </div>
+      )}
+
+      {canRelease && (
+        <div style={{
+          padding: '1.5rem',
+          background: 'rgba(0, 229, 204, 0.05)',
+          borderRadius: '8px',
+          border: '1px solid rgba(0, 229, 204, 0.2)'
+        }}>
+          <div style={{ marginBottom: '1rem' }}>
+            <strong style={{ color: 'var(--accent)' }}>Ready to Release</strong>
+            <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
+              The deadline has passed. You can now claim this milestone payment.
+            </p>
+          </div>
+          <button
+            onClick={onRelease}
+            disabled={releasing}
+            className="btn btn-primary"
+            style={{ width: '100%' }}
+          >
+            {releasing ? '⏳ Releasing...' : '💰 Release Payment'}
+          </button>
+        </div>
+      )}
+
+      {isClient && isPending && !isPastDeadline && (
+        <div style={{
+          padding: '1rem',
+          background: 'rgba(255, 170, 0, 0.05)',
+          borderRadius: '8px',
+          border: '1px solid rgba(255, 170, 0, 0.2)',
+          fontSize: '0.9rem',
+          color: 'var(--text-muted)'
+        }}>
+          ℹ️ Funds are locked in escrow. Freelancer can release after {deadline.toLocaleDateString()}.
+        </div>
+      )}
+    </div>
+  );
+}
+
+export default ProjectDetails;

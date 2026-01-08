@@ -1,11 +1,14 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
+import { useWallet } from '../App';
 
 /**
  * Home Page Component
- * Landing page for Freelance Escrow Platform
+ * Landing page for Frescrow - Freelance Escrow Platform
  */
 function Home() {
+  const { wallet } = useWallet();
+
   return (
     <div className="home">
       {/* Hero Section */}
@@ -66,49 +69,62 @@ function Home() {
         </div>
       </section>
 
-      {/* Features Section */}
-      <section className="features">
+      {/* Features Section - Simplified */}
+      <section className="features" style={{ padding: '6rem 0' }}>
         <div className="container">
-          <div className="text-center" style={{ marginBottom: '4rem' }}>
-            <h2>How It Works</h2>
-            <p style={{ fontSize: '1.25rem', marginTop: '1rem' }}>
+          {/* Section Header */}
+          <div style={{ 
+            textAlign: 'center', 
+            marginBottom: '4rem'
+          }}>
+            <h2 style={{ 
+              fontSize: '2.5rem', 
+              marginBottom: '1rem'
+            }}>
+              How It Works
+            </h2>
+            <p style={{ 
+              fontSize: '1.125rem', 
+              color: 'var(--text-muted)'
+            }}>
               Smart escrow powered by the XRP Ledger
             </p>
           </div>
           
-          <div className="features-grid">
+          {/* Features Grid */}
+          <div style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))',
+            gap: '1.5rem',
+            maxWidth: '1400px',
+            margin: '0 auto'
+          }}>
             <FeatureCard 
-              icon="🔒"
               title="Escrow Protection"
               description="Funds are locked on-chain using XRPL's native escrow. Neither party can touch the money until milestones are approved."
             />
             
             <FeatureCard 
-              icon="💎"
               title="RLUSD Stable Payments"
               description="Pay in RLUSD for stable, predictable transactions. No volatility, just reliable payments."
             />
             
             <FeatureCard 
-              icon="🎯"
               title="Milestone-Based"
               description="Split projects into milestones. Release funds progressively as work is completed and approved."
             />
             
             <FeatureCard 
-              icon="⚡"
               title="Instant Settlement"
               description="Payments settle in seconds on XRPL. No waiting days for bank transfers or platform approvals."
             />
             
             <FeatureCard 
-              icon="🆔"
               title="DID Reputation"
               description="Build your on-chain reputation. Every completed project adds to your verifiable work history."
             />
             
             <FeatureCard 
-              icon="🌐"
               title="Global & Permissionless"
               description="Work with anyone, anywhere. No banks, no borders, no restrictions. Just your wallet."
             />
@@ -118,27 +134,83 @@ function Home() {
 
       {/* CTA Section */}
       <section className="container" style={{ padding: '6rem 0', textAlign: 'center' }}>
-        <h2 style={{ marginBottom: '2rem' }}>Ready to Start?</h2>
-        <p style={{ fontSize: '1.25rem', marginBottom: '3rem', maxWidth: '600px', margin: '0 auto 3rem' }}>
-          Create your first escrow project in minutes. No signup required—just your XRPL wallet.
-        </p>
-        <Link to="/create-project" className="btn btn-primary" style={{ fontSize: '1.125rem', padding: '1.25rem 3rem' }}>
-          Launch Project
-        </Link>
+        <div style={{
+          background: 'linear-gradient(135deg, rgba(26, 31, 58, 0.6), rgba(37, 43, 74, 0.6))',
+          borderRadius: '32px',
+          padding: '4rem 2rem',
+          border: '1px solid rgba(255, 255, 255, 0.05)',
+          backdropFilter: 'blur(20px)'
+        }}>
+          <h2 style={{ 
+            marginBottom: '1.5rem',
+            fontSize: '2.5rem'
+          }}>
+            Ready to Start?
+          </h2>
+          <p style={{ 
+            fontSize: '1.25rem', 
+            marginBottom: '3rem', 
+            maxWidth: '600px', 
+            margin: '0 auto 3rem',
+            color: 'var(--text-muted)',
+            lineHeight: '1.6'
+          }}>
+            Create your first escrow project in minutes. No signup required—just your XRPL wallet.
+          </p>
+          <Link 
+            to="/create-project" 
+            className="btn btn-primary" 
+            style={{ 
+              fontSize: '1.125rem', 
+              padding: '1.25rem 3rem',
+              boxShadow: '0 10px 40px rgba(0, 229, 204, 0.3)'
+            }}
+          >
+            🚀 Launch Project
+          </Link>
+        </div>
       </section>
     </div>
   );
 }
 
 /**
- * Feature Card Component
+ * Feature Card Component - Simplified
  */
-function FeatureCard({ icon, title, description }) {
+function FeatureCard({ title, description }) {
   return (
-    <div className="feature-card">
-      <span className="feature-icon">{icon}</span>
-      <h3>{title}</h3>
-      <p>{description}</p>
+    <div style={{
+      padding: '2.5rem 2rem',
+      background: 'rgba(26, 31, 58, 0.6)',
+      borderRadius: '16px',
+      border: '1px solid rgba(255, 255, 255, 0.1)',
+      transition: 'all 0.3s ease',
+      height: '100%'
+    }}
+    onMouseEnter={(e) => {
+      e.currentTarget.style.transform = 'translateY(-4px)';
+      e.currentTarget.style.borderColor = 'rgba(0, 229, 204, 0.4)';
+    }}
+    onMouseLeave={(e) => {
+      e.currentTarget.style.transform = 'translateY(0)';
+      e.currentTarget.style.borderColor = 'rgba(255, 255, 255, 0.1)';
+    }}
+    >
+      <h3 style={{
+        fontSize: '1.5rem',
+        marginBottom: '1rem',
+        fontWeight: 600,
+        color: 'var(--text)'
+      }}>
+        {title}
+      </h3>
+      <p style={{
+        fontSize: '1rem',
+        color: 'var(--text-muted)',
+        lineHeight: '1.6'
+      }}>
+        {description}
+      </p>
     </div>
   );
 }
@@ -183,7 +255,7 @@ function EscrowVisualization() {
 function EscrowFlow() {
   const steps = [
     { label: 'Client', emoji: '👤', color: '#FF6B9D' },
-    { label: 'Escrow', emoji: '🔒', color: '#00E5CC' },
+    { label: 'Frescrow', emoji: '🔒', color: '#00E5CC' },
     { label: 'Freelancer', emoji: '💼', color: '#FFAA00' }
   ];
 
