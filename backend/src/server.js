@@ -25,7 +25,7 @@ const PORT = process.env.PORT || 3001;
  * Tech Stack:
  * - Express.js (REST API)
  * - XRPL.js (blockchain integration)
- * - SQLite (persistent storage)
+ * - In-memory database (for hackathon demo)
  * - Helmet (security)
  * - Compression (performance)
  */
@@ -119,10 +119,6 @@ app.post('/api/wallet/create', async (req, res) => {
  * Verify wallet and get info
  * POST /api/wallet/verify
  */
-/**
- * Verify wallet and get info
- * POST /api/wallet/verify
- */
 app.post('/api/wallet/verify', async (req, res) => {
   try {
     const { seed } = req.body;
@@ -203,6 +199,35 @@ app.post('/api/projects/create-with-wallet', async (req, res) => {
         success: false,
         error: 'Project title and description are required'
       });
+    }
+
+    // ✅ ADDED: Validate XRPL address format
+    const xrplAddressRegex = /^r[1-9A-HJ-NP-Za-km-z]{25,34}$/;
+    if (!xrplAddressRegex.test(freelancerAddress)) {
+      return res.status(400).json({
+        success: false,
+        error: 'Invalid freelancer XRPL address format. Address must start with "r" and be 25-34 characters long.'
+      });
+    }
+
+    // ✅ ADDED: Validate deadlines are in the future
+    const now = new Date();
+    for (let i = 0; i < milestones.length; i++) {
+      const deadline = new Date(milestones[i].deadline);
+      if (deadline <= now) {
+        return res.status(400).json({
+          success: false,
+          error: `Milestone ${i + 1} ("${milestones[i].name}"): Deadline must be in the future`
+        });
+      }
+      
+      // ✅ ADDED: Validate amount is positive
+      if (!milestones[i].amount || parseFloat(milestones[i].amount) <= 0) {
+        return res.status(400).json({
+          success: false,
+          error: `Milestone ${i + 1} ("${milestones[i].name}"): Amount must be greater than 0`
+        });
+      }
     }
 
     // Get client wallet
@@ -400,14 +425,14 @@ app.post('/api/projects/:projectId/accept', (req, res) => {
     if (project.freelancerAddress !== freelancerAddress) {
       return res.status(403).json({ 
         success: false, 
-        error: 'Not authorized' 
+        error: 'Not authorized. This project is assigned to a different freelancer.' 
       });
     }
 
     if (project.status !== 'pending') {
       return res.status(400).json({
         success: false,
-        error: 'Project already accepted'
+        error: 'Project has already been accepted'
       });
     }
 
@@ -420,7 +445,7 @@ app.post('/api/projects/:projectId/accept', (req, res) => {
 
     res.json({ 
       success: true, 
-      message: 'Project accepted',
+      message: 'Project accepted successfully',
       project 
     });
   } catch (error) {
@@ -461,7 +486,15 @@ app.post('/api/milestones/submit', (req, res) => {
     if (milestone.status !== 'pending') {
       return res.status(400).json({
         success: false,
-        error: 'Milestone already submitted'
+        error: 'Milestone has already been submitted'
+      });
+    }
+
+    // Validate submission has description
+    if (!submission.description || submission.description.trim().length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'Submission description is required'
       });
     }
 
@@ -589,7 +622,7 @@ app.post('/api/milestones/approve', async (req, res) => {
     if (freelancerWallet.address !== project.freelancerAddress) {
       return res.status(403).json({
         success: false,
-        error: 'Not authorized'
+        error: 'Not authorized. You are not the assigned freelancer for this project.'
       });
     }
 
@@ -610,13 +643,21 @@ app.post('/api/milestones/approve', async (req, res) => {
 
     db.saveProject(project);
 
+    // ✅ ADDED: Check if all milestones are complete
+    const allReleased = project.milestones.every(m => m.status === 'released');
+    if (allReleased && project.status !== 'completed') {
+      db.updateProjectStatus(project.id, 'completed');
+      console.log('🎉 All milestones released! Project marked as completed.');
+    }
+
     console.log('✅ Payment released! Hash:', result.hash);
 
     res.json({ 
       success: true, 
       message: 'Payment released successfully',
       result,
-      milestone
+      milestone,
+      projectCompleted: allReleased
     });
 
   } catch (error) {

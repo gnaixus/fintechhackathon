@@ -15,10 +15,8 @@ function Offers() {
   const [error, setError] = useState('');
 
   useEffect(() => {
-    console.log('🔍 Offers page mounted');
-    console.log('👤 Current wallet:', wallet);
     loadOffers();
-  }, []);
+  }, [wallet]);
 
   const loadOffers = async () => {
     try {
@@ -56,6 +54,7 @@ function Offers() {
       
       console.log('✅ Project accepted successfully');
       
+      // Remove from offers list
       setOffers(offers.filter(o => o.id !== projectId));
       
       alert('✅ Project accepted! You can now view it in your dashboard.');
@@ -68,9 +67,6 @@ function Offers() {
       setAccepting(null);
     }
   };
-
-  console.log('🎨 Rendering Offers page');
-  console.log('📊 Current state:', { loading, offersCount: offers.length, error });
 
   if (loading) {
     return (
@@ -86,9 +82,6 @@ function Offers() {
             animation: 'spin 1s linear infinite'
           }}></div>
           <p style={{ marginTop: '1rem' }}>Loading offers...</p>
-          <p style={{ fontSize: '0.85rem', color: 'var(--text-muted)', marginTop: '0.5rem' }}>
-            Checking for projects at: {wallet?.address}
-          </p>
         </div>
       </div>
     );
@@ -103,24 +96,9 @@ function Offers() {
         </div>
         
         <h1 style={{ marginBottom: '1rem' }}>Your Offers</h1>
-        <p style={{ marginBottom: '1rem', fontSize: '1.125rem', color: 'var(--text-muted)' }}>
+        <p style={{ marginBottom: '3rem', fontSize: '1.125rem', color: 'var(--text-muted)' }}>
           Escrow projects where you've been invited as the freelancer
         </p>
-
-        {/* Debug Info */}
-        <div style={{
-          background: 'rgba(255, 170, 0, 0.1)',
-          border: '1px solid rgba(255, 170, 0, 0.3)',
-          borderRadius: '12px',
-          padding: '1rem',
-          marginBottom: '2rem',
-          fontSize: '0.9rem'
-        }}>
-          <div><strong>🔍 Debug Info:</strong></div>
-          <div>Your Address: <code style={{ color: 'var(--accent)' }}>{wallet?.address}</code></div>
-          <div>Offers Found: {offers.length}</div>
-          <div>API Endpoint: {API_URL}/projects/offers/{wallet?.address}</div>
-        </div>
 
         {/* Error Message */}
         {error && (
@@ -158,32 +136,89 @@ function Offers() {
             </p>
             <div style={{
               marginTop: '2rem',
-              padding: '1rem',
+              padding: '1.5rem',
               background: 'rgba(0, 229, 204, 0.05)',
               borderRadius: '12px',
               border: '1px solid rgba(0, 229, 204, 0.2)',
-              textAlign: 'left'
+              textAlign: 'left',
+              maxWidth: '600px',
+              margin: '2rem auto 0'
             }}>
-              <strong style={{ color: 'var(--accent)' }}>💡 To test:</strong>
-              <ol style={{ marginTop: '0.5rem', marginLeft: '1.5rem', fontSize: '0.9rem' }}>
-                <li>Open a new incognito window</li>
-                <li>Connect as a different wallet (the client)</li>
-                <li>Create a project with YOUR address as freelancer</li>
-                <li>Return here and refresh</li>
+              <div style={{ 
+                fontSize: '1rem', 
+                fontWeight: 600, 
+                color: 'var(--accent)', 
+                marginBottom: '1rem',
+                display: 'flex',
+                alignItems: 'center',
+                gap: '0.5rem'
+              }}>
+                💡 How to test the Offers feature:
+              </div>
+              <ol style={{ 
+                marginLeft: '1.5rem', 
+                fontSize: '0.95rem',
+                lineHeight: '1.8',
+                color: 'var(--text-muted)'
+              }}>
+                <li>Copy your wallet address: <code style={{ 
+                  background: 'rgba(0, 229, 204, 0.1)',
+                  padding: '0.25rem 0.5rem',
+                  borderRadius: '4px',
+                  fontSize: '0.85rem',
+                  color: 'var(--accent)',
+                  fontFamily: 'monospace'
+                }}>{wallet?.address?.slice(0, 20)}...</code></li>
+                <li>Open a <strong>new incognito/private window</strong></li>
+                <li>Create or connect a different wallet (this will be the "client")</li>
+                <li>Go to "New Project" and paste YOUR address as the freelancer</li>
+                <li>Create the project with milestones</li>
+                <li>Return to this window and refresh - the offer will appear!</li>
               </ol>
             </div>
+            
+            <button
+              onClick={loadOffers}
+              className="btn btn-secondary"
+              style={{ marginTop: '2rem' }}
+            >
+              🔄 Refresh Offers
+            </button>
           </div>
         ) : (
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
-            {offers.map((offer) => (
-              <OfferCard
-                key={offer.id}
-                offer={offer}
-                onAccept={handleAccept}
-                accepting={accepting === offer.id}
-              />
-            ))}
-          </div>
+          <>
+            <div style={{
+              background: 'rgba(0, 229, 204, 0.05)',
+              border: '1px solid rgba(0, 229, 204, 0.2)',
+              borderRadius: '12px',
+              padding: '1rem',
+              marginBottom: '2rem',
+              display: 'flex',
+              alignItems: 'center',
+              gap: '0.75rem'
+            }}>
+              <span style={{ fontSize: '1.5rem' }}>🎉</span>
+              <div>
+                <strong style={{ color: 'var(--accent)' }}>
+                  {offers.length} project offer{offers.length !== 1 ? 's' : ''} waiting for you!
+                </strong>
+                <p style={{ fontSize: '0.9rem', color: 'var(--text-muted)', margin: '0.25rem 0 0 0' }}>
+                  Review the details and accept projects you want to work on.
+                </p>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.5rem' }}>
+              {offers.map((offer) => (
+                <OfferCard
+                  key={offer.id}
+                  offer={offer}
+                  onAccept={handleAccept}
+                  accepting={accepting === offer.id}
+                />
+              ))}
+            </div>
+          </>
         )}
       </div>
     </div>
@@ -213,7 +248,7 @@ function OfferCard({ offer, onAccept, accepting }) {
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'start', marginBottom: '1.5rem' }}>
         <div style={{ flex: 1 }}>
           <h3 style={{ fontSize: '1.5rem', marginBottom: '0.5rem' }}>{offer.title}</h3>
-          <p style={{ color: 'var(--text-muted)', fontSize: '1rem' }}>{offer.description}</p>
+          <p style={{ color: 'var(--text-muted)', fontSize: '1rem', lineHeight: '1.6' }}>{offer.description}</p>
         </div>
         
         <div style={{
@@ -358,7 +393,8 @@ function OfferCard({ offer, onAccept, accepting }) {
         background: 'rgba(0, 229, 204, 0.05)',
         borderRadius: '8px',
         fontSize: '0.875rem',
-        color: 'var(--text-muted)'
+        color: 'var(--text-muted)',
+        lineHeight: '1.6'
       }}>
         💡 <strong style={{ color: 'var(--accent)' }}>Note:</strong> By accepting this project, you agree to complete the milestones by their deadlines. Funds are locked in XRPL escrow and will be released upon client approval.
       </div>

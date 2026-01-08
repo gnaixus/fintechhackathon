@@ -4,13 +4,11 @@ import { useWallet } from '../App';
 
 const API_URL = 'http://localhost:3001/api';
 
-
 function CreateProject() {
-  const { Wallet } = useWallet();
+  const { wallet, refreshBalance } = useWallet(); // ✅ FIXED: removed incorrect Wallet destructuring
   const [loading, setLoading] = useState(false);
   const [success, setSuccess] = useState(false);
   const [error, setError] = useState('');
-  const { wallet, refreshBalance } = useWallet();
   
   const [formData, setFormData] = useState({
     title: '',
@@ -20,6 +18,11 @@ function CreateProject() {
       { name: '', amount: '', deadline: '' }
     ]
   });
+
+  // ✅ ADDED: XRPL address validation
+  const isValidXRPLAddress = (address) => {
+    return /^r[1-9A-HJ-NP-Za-km-z]{25,34}$/.test(address);
+  };
 
   const addMilestone = () => {
     setFormData({
@@ -49,6 +52,24 @@ function CreateProject() {
     setError('');
     setSuccess(false);
 
+    // ✅ ADDED: Validate freelancer address
+    if (!isValidXRPLAddress(formData.freelancerAddress)) {
+      setError('Invalid XRPL address format. Address must start with "r" and be 25-34 characters long.');
+      setLoading(false);
+      return;
+    }
+
+    // ✅ ADDED: Validate deadlines are in the future
+    const now = new Date();
+    for (let i = 0; i < formData.milestones.length; i++) {
+      const deadline = new Date(formData.milestones[i].deadline);
+      if (deadline <= now) {
+        setError(`Milestone ${i + 1} deadline must be in the future.`);
+        setLoading(false);
+        return;
+      }
+    }
+
     try {
       const response = await axios.post(`${API_URL}/projects/create-with-wallet`, {
         clientSeed: wallet.seed,
@@ -61,9 +82,8 @@ function CreateProject() {
       console.log('Project created:', response.data);
       setSuccess(true);
 
-      if (refreshBalance) {
-        await refreshBalance();
-      }
+      // ✅ FIXED: Always call refreshBalance (no conditional check needed)
+      await refreshBalance();
 
       setTimeout(() => {
         window.location.href = '/dashboard';
@@ -237,7 +257,7 @@ function CreateProject() {
               }}
             />
             <small style={{ color: 'var(--text-muted)', fontSize: '0.875rem', marginTop: '0.5rem', display: 'block' }}>
-              Enter the freelancer's XRPL wallet address
+              Enter the freelancer's XRPL wallet address (must start with 'r')
             </small>
           </div>
 

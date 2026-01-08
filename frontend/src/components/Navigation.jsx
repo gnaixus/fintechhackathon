@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import { useWallet } from '../App';
 
@@ -9,6 +9,7 @@ import { useWallet } from '../App';
 function Navigation() {
   const { wallet, disconnect } = useWallet();
   const [showDropdown, setShowDropdown] = useState(false);
+  const dropdownRef = useRef(null); // ✅ ADDED: Ref for click outside detection
 
   const truncateAddress = (address) => {
     if (!address) return '';
@@ -20,6 +21,23 @@ function Navigation() {
       disconnect();
     }
   };
+
+  // ✅ ADDED: Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
+        setShowDropdown(false);
+      }
+    };
+
+    if (showDropdown) {
+      document.addEventListener('mousedown', handleClickOutside);
+    }
+
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, [showDropdown]);
 
   return (
     <nav className="nav">
